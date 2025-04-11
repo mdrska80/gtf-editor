@@ -29,20 +29,20 @@ Tento dokument popisuje technickou specifikaci pro editor GTF souborů a slouž�
 - [ ] Možnost úpravy hodnot těchto polí.
 
 ### 3.3. Správa Glyphů
-- [ ] Zobrazení seznamu všech glyphů v souboru (např. podle `CHAR` nebo `GLYPH` názvu).
-- [ ] Možnost vybrat glyph ze seznamu pro detailní editaci.
+- [x] Zobrazení seznamu všech glyphů v souboru (např. podle `CHAR` nebo `GLYPH` názvu).
+- [x] Možnost vybrat glyph ze seznamu pro detailní editaci.
 - [ ] Přidání nového, prázdného glyphu do souboru.
 - [ ] Odstranění vybraného glyphu.
 
 ### 3.4. Editace Glypha
 - **Metadata:**
-    - [ ] Zobrazení a možnost úpravy polí `GLYPH` (název), `UNICODE`, `CHAR`, `SIZE`.
+    - [x] Zobrazení a možnost úpravy polí `GLYPH` (název), `UNICODE`, `CHAR`, `SIZE` (zobrazení hotovo).
 - **Paleta (pro barevné glyphy):**
-    - [ ] Zobrazení aktuální palety (znak a barva).
+    - [-] Zobrazení aktuální palety (znak a barva) (zatím jen stav: počet barev/monochrome).
     - [ ] Možnost přidat/odebrat/upravit barvu v paletě (včetně výběru barvy např. pomocí color pickeru).
     - [ ] Přepínání mezi monochromatickým a barevným režimem glyphu (přidání/odebrání sekce `PALETTE`).
 - **Bitmapový Editor:**
-    - [ ] Vizuální zobrazení bitmapy glyphu jako mřížky (gridu) podle `SIZE`.
+    - [-] Vizuální zobrazení bitmapy glyphu jako mřížky (gridu) podle `SIZE` (zatím jen textový výpis).
     - [ ] Možnost "kreslit" do mřížky kliknutím myši:
         - [ ] V barevném režimu: Výběr "kreslícího" znaku z palety.
         - [ ] V monochromatickém režimu: Přepínání mezi `#` a `.`.
@@ -61,8 +61,8 @@ Tento dokument popisuje technickou specifikaci pro editor GTF souborů a slouž�
 ## 4. Uživatelské Rozhraní (UI)
 - [-] Jednoduché a intuitivní rozložení.
 - [x] Panel pro editaci hlavičky (zobrazení dat).
-- [ ] Panel se seznamem glyphů.
-- [ ] Hlavní oblast pro editaci vybraného glyphu (metadata, paleta, bitmapa).
+- [x] Panel se seznamem glyphů (zobrazení a výběr).
+- [-] Hlavní oblast pro editaci vybraného glyphu (metadata, paleta, bitmapa) (zobrazení metadat hotovo).
 - [ ] Vizuální zpětná vazba při akcích (ukládání, chyby parsování atd.).
 
 ## 5. Možná Budoucí Rozšíření (Mimo MVP)
