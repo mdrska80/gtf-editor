@@ -360,4 +360,86 @@ fn validate_bitmap_line(line: &str, glyph: &Glyph, line_num: usize) -> Result<()
         }
     }
     Ok(())
+}
+
+// --- Serialization Logic ---
+
+pub fn serialize_gtf_document(document: &GtfDocument) -> Result<String, String> {
+    let mut output = String::new();
+
+    // --- Serialize Header ---
+    let header = &document.header;
+    if header.font_name.is_some() || header.version.is_some() || header.author.is_some() || header.description.is_some() {
+        output.push_str("HEADER\n");
+        if let Some(name) = &header.font_name {
+            output.push_str(&format!("FONT {}\n", name));
+        }
+        if let Some(version) = &header.version {
+            output.push_str(&format!("VERSION {}\n", version));
+        }
+        if let Some(author) = &header.author {
+            output.push_str(&format!("AUTHOR {}\n", author));
+        }
+        if let Some(desc) = &header.description {
+            output.push_str(&format!("DESCRIPTION {}\n", desc));
+        }
+        output.push_str("END HEADER\n");
+    }
+
+    // --- Serialize Glyphs ---
+    for glyph in &document.glyphs {
+        output.push_str(&format!("\nGLYPH {}\n", glyph.name)); // Add newline before glyph
+
+        if let Some(unicode) = &glyph.unicode {
+            output.push_str(&format!("UNICODE {}\n", unicode));
+        }
+        if let Some(char_repr) = &glyph.char_repr {
+            output.push_str(&format!("CHAR {}\n", char_repr));
+        }
+        if let Some(size) = &glyph.size {
+            output.push_str(&format!("SIZE {}x{}\n", size.width, size.height));
+        }
+
+        // Palette (if exists)
+        if let Some(palette) = &glyph.palette {
+             if !palette.entries.is_empty() {
+                 output.push_str("PALETTE\n");
+                 // Sort entries for consistent output (optional but good practice)
+                 let mut sorted_entries: Vec<_> = palette.entries.iter().collect();
+                 sorted_entries.sort_by_key(|(k, _)| *k);
+                 for (key, value) in sorted_entries {
+                     output.push_str(&format!("  {} {}\n", key, value)); // Indent palette entries
+                 }
+             }
+        }
+        
+        // Bitmap (requires size)
+        if let Some(size) = &glyph.size {
+             if !glyph.bitmap.is_empty() {
+                 // Basic validation: check if bitmap lines match height
+                 if glyph.bitmap.len() != size.height as usize {
+                     return Err(format!("Serialization error for glyph '{}': Bitmap has {} lines, but SIZE expects {}.", 
+                                         glyph.name, glyph.bitmap.len(), size.height));
+                 }
+                 output.push_str("\n"); // Add newline before bitmap
+                 for (index, line) in glyph.bitmap.iter().enumerate() {
+                     // Basic validation: check if bitmap line matches width
+                     if line.chars().count() != size.width as usize {
+                        return Err(format!("Serialization error for glyph '{}': Bitmap line {} has length {}, but SIZE expects {}.", 
+                                             glyph.name, index + 1, line.chars().count(), size.width));
+                     }
+                     // TODO: Validate characters against palette/monochrome?
+                     output.push_str(line);
+                     output.push('\n');
+                 }
+             }
+        } else if !glyph.bitmap.is_empty() {
+            // Error: bitmap data present without SIZE definition
+            return Err(format!("Serialization error for glyph '{}': Bitmap data found, but SIZE is not defined.", glyph.name));
+        }
+
+        output.push_str(&format!("\nEND GLYPH {}\n", glyph.name));
+    }
+
+    Ok(output)
 } 

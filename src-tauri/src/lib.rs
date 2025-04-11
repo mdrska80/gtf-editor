@@ -21,6 +21,19 @@ fn load_gtf_file(path: String) -> Result<gtf::GtfDocument, String> {
     // .map_err(|parse_err| format!("Error parsing file '{}': {}", path, parse_err))
 }
 
+/// Serializes the GtfDocument and saves it to the specified path.
+#[tauri::command]
+fn save_gtf_file(path: String, document: gtf::GtfDocument) -> Result<(), String> {
+    // Serialize the document
+    let content = gtf::serialize_gtf_document(&document)?;
+    // Note: serialize_gtf_document itself returns Result<String, String>,
+    // the `?` operator propagates the error if serialization fails.
+
+    // Write the content to the file
+    fs::write(&path, content)
+        .map_err(|err| format!("Failed to write file '{}': {}", path, err))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Import structs from our gtf module (even if unused for now)
@@ -29,8 +42,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        // Register our new command handler
-        .invoke_handler(tauri::generate_handler![load_gtf_file])
+        // Register command handlers
+        .invoke_handler(tauri::generate_handler![
+            load_gtf_file, 
+            save_gtf_file // Add the new save command
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

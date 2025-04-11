@@ -5,7 +5,7 @@ import GlyphEditor from './components/GlyphEditor.vue';
 // Import Tauri API functions
 import { invoke } from "@tauri-apps/api/core";
 // Import from the specific dialog plugin
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 // import { BaseDirectory, readTextFile } from '@tauri-apps/api/fs'; // Remove unused fs import for now
 
 const currentView = ref(null); // Possible values: null, 'header', 'glyph'
@@ -59,6 +59,45 @@ async function openFile() {
     currentView.value = null;
     selectedGlyphName.value = null;
     alert(`Failed to load file: ${error}`); // Simple error feedback
+  }
+}
+
+async function saveFileAs() {
+  if (!gtfData.value) {
+    alert("No data to save. Please open a file first.");
+    return;
+  }
+  currentError.value = null;
+  try {
+    const savePath = await save({
+      filters: [
+        {
+          name: 'Glyph Text Format',
+          extensions: ['gtf']
+        }
+      ],
+      // Suggest a filename based on the font name if available
+      defaultPath: gtfData.value?.header?.font_name ? `${gtfData.value.header.font_name}.gtf` : 'untitled.gtf'
+    });
+
+    if (savePath) {
+      console.log("Saving to file:", savePath);
+      // Call the Rust command to serialize and save the file
+      await invoke('save_gtf_file', { 
+        path: savePath, 
+        document: gtfData.value // Pass the current data
+      });
+      console.log("File saved successfully.");
+      // Optionally show a success message (e.g., using a snackbar)
+      alert("File saved successfully!");
+    } else {
+      console.log("File saving cancelled.");
+    }
+
+  } catch (error) {
+    console.error("Error saving file:", error);
+    currentError.value = `Error saving file: ${error}`;
+    alert(`Failed to save file: ${error}`);
   }
 }
 
@@ -160,6 +199,13 @@ function updateGlyphData({ field, value }) {
 
       <v-btn prepend-icon="mdi-folder-open-outline" @click="openFile">
         Open File
+      </v-btn>
+      <v-btn 
+        prepend-icon="mdi-content-save-outline" 
+        @click="saveFileAs" 
+        :disabled="!gtfData" 
+      >
+        Save As...
       </v-btn>
       <!-- Placeholder for more menu/buttons -->
     </v-app-bar>

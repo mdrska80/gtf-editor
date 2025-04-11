@@ -19,9 +19,9 @@ Tento dokument popisuje technickou specifikaci pro editor GTF souborů a slouž�
 ## 3. Základní Funkcionalita
 
 ### 3.1. Správa Souborů
-- [ ] Otevření existujícího `.gtf` souboru pomocí systémového dialogu.
+- [x] Otevření existujícího `.gtf` souboru pomocí systémového dialogu.
 - [ ] Uložení aktuálně otevřeného souboru (přepsání).
-- [ ] Uložení jako nový `.gtf` soubor pomocí systémového dialogu.
+- [x] Uložení jako nový `.gtf` soubor pomocí systémového dialogu.
 - [ ] Vytvoření nového, prázdného GTF dokumentu.
 
 ### 3.2. Editace Hlavičky
@@ -55,7 +55,9 @@ Tento dokument popisuje technickou specifikaci pro editor GTF souborů a slouž�
   - **Funkce:** `parse_gtf_content` (v `gtf.rs`) - hlavní parser využívající stavový automat a pomocné funkce.
   - **Pomocné funkce:** `parse_header_line`, `parse_glyph_meta_line`, `parse_palette_line`, `validate_end_glyph`, `validate_bitmap_line`, `Size::from_str` (v `gtf.rs`).
   - **Tauri Command:** `load_gtf_file` (v `lib.rs`) - načte soubor a zavolá parser.
-- [ ] Implementace logiky pro uložení (`serialize`) interní datové struktury zpět do validního `.gtf` formátu.
+- [x] Implementace logiky pro uložení (`serialize`) interní datové struktury zpět do validního `.gtf` formátu.
+  - **Funkce:** `serialize_gtf_document` (v `gtf.rs`) - vytvoří textový GTF z `GtfDocument`.
+  - **Tauri Command:** `save_gtf_file` (v `lib.rs`) - zavolá serializaci a zapíše do souboru.
 - [x] Základní validace formátu při načítání a upozornění uživatele na chyby (implementováno v rámci `parse_gtf_content`).
 
 ## 4. Uživatelské Rozhraní (UI)
