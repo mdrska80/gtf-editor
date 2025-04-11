@@ -110,10 +110,40 @@
     <v-row>
       <v-col cols="12">
         <h3>Bitmap</h3>
-        <!-- TODO: Visual bitmap editor -->
-         <pre v-if="glyphData.bitmap && glyphData.bitmap.length > 0">{{ glyphData.bitmap.join('\n') }}</pre>
-         <p v-else>(No bitmap data)</p>
-        <p>(Bitmap editor placeholder)</p>
+        
+        <div 
+          v-if="glyphData.size && glyphData.bitmap" 
+          class="bitmap-grid"
+          :style="gridStyle"
+        >
+          <template v-for="(row, y) in glyphData.bitmap" :key="y">
+            <v-tooltip 
+              v-for="(char, x) in row.split('')" 
+              :key="`${x}-${y}`"
+              :text="isCharValid(char) ? '' : `Char \'${char}\' not in palette!`"
+              :disabled="isCharValid(char)"
+              location="top"
+            >
+              <template v-slot:activator="{ props: tooltipProps }">
+                <v-btn 
+                  v-bind="tooltipProps" 
+                  class="bitmap-cell"
+                  :style="getCellStyle(char)"
+                  icon 
+                  variant="flat" 
+                  size="x-small" 
+                  :ripple="false"
+                  @click="handleCellClick(x, y)" 
+                >
+                  <!-- Display character ONLY if it's invalid -->
+                  <span v-if="!isCharValid(char)" class="invalid-char-indicator">{{ char }}</span>
+                </v-btn>
+              </template>
+            </v-tooltip>
+          </template>
+        </div>
+        <p v-else>(No bitmap data or size defined)</p>
+
       </v-col>
     </v-row>
 
@@ -250,6 +280,66 @@ function removePaletteEntry(charToRemove) {
   emit('update:glyphField', { field: 'palette', value: { entries: updatedEntries } });
 }
 
+// --- Bitmap Logic ---
+
+// TODO: Add state for currently selected drawing character/color
+const selectedDrawChar = ref('.'); // Default for mono off
+
+// Computed property for grid styling (CSS Grid)
+const gridStyle = computed(() => {
+  if (props.glyphData && props.glyphData.size) {
+    return {
+      display: 'grid',
+      gridTemplateColumns: `repeat(${props.glyphData.size.width}, auto)`,
+      gap: '1px',
+      backgroundColor: '#ccc', // Grid lines
+      border: '1px solid #ccc',
+      width: 'min-content' // Prevent grid from stretching
+    };
+  }
+  return {};
+});
+
+// Helper to check if a character is valid in the current context
+function isCharValid(char) {
+   if (isColorMode.value) {
+     // Color mode: valid if palette exists and contains the char
+     return !!(props.glyphData.palette && props.glyphData.palette.entries && Object.prototype.hasOwnProperty.call(props.glyphData.palette.entries, char));
+   } else {
+     // Monochrome mode: valid if # or .
+     return char === '#' || char === '.';
+   }
+}
+
+// Helper to get cell background color
+function getCellStyle(char) {
+  let bgColor = '#ffffff';
+  let style = {}; 
+
+  if (isColorMode.value && props.glyphData.palette && props.glyphData.palette.entries) {
+      if (Object.prototype.hasOwnProperty.call(props.glyphData.palette.entries, char)) {
+          bgColor = props.glyphData.palette.entries[char];
+      } else {
+          bgColor = '#f0f0f0'; 
+          style.border = '1px dashed red'; 
+      }
+  } else {
+      bgColor = (char === '#') ? '#000000' : '#ffffff';
+      style.border = '1px solid transparent'; 
+  }
+  style.backgroundColor = bgColor;
+  return style;
+}
+
+// Placeholder for handling cell clicks (editing)
+function handleCellClick(x, y) {
+  console.log(`Clicked cell: x=${x}, y=${y}`);
+  // TODO: Implement bitmap update logic here
+  // 1. Get current drawing char/color
+  // 2. Update character at [y][x] in a mutable copy of the bitmap array
+  // 3. Emit the updated bitmap array: emit('update:glyphField', { field: 'bitmap', value: newBitmapArray });
+}
+
 </script>
 
 <style scoped>
@@ -280,4 +370,35 @@ pre {
   border-radius: 3px;
   margin-right: 5px;
 }
+
+.bitmap-grid {
+  margin-top: 10px;
+  line-height: 0; /* Prevent extra space around buttons */
+}
+
+.bitmap-cell {
+  min-width: 24px; /* Ensure button has size */
+  min-height: 24px;
+  padding: 0;
+  border-radius: 0; /* Make it square */
+  border: none;
+  box-shadow: none !important; /* Override Vuetify shadow */
+}
+
+/* Optional: change cursor */
+.bitmap-cell:hover {
+  cursor: pointer; 
+}
+
+.invalid-char-indicator {
+  color: red;
+  font-weight: bold;
+  font-size: 10px; /* Make it small */
+  position: absolute; /* Position it within the button */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none; /* Allow clicking the button underneath */
+}
+
 </style> 
