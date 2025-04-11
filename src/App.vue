@@ -120,12 +120,22 @@ function updateGlyphData({ field, value }) {
           console.error("Glyph name cannot be empty.");
           return; // Don't update if name is empty
       }
+  } else if (field === 'size') {
+     // Value should be { width, height } or null if cleared
+     processedValue = value; 
+     // TODO: When size changes, we might need to resize/clear the bitmap data!
+     // This requires careful handling later.
   }
   // Add handling for other fields like size later
   
   // Update the data
-  gtfData.value.glyphs[glyphIndex][field] = processedValue;
-  console.log("Updated glyph:", gtfData.value.glyphs[glyphIndex]);
+  // Make sure we are not trying to set an unknown field
+  if (field in gtfData.value.glyphs[glyphIndex]) {
+      gtfData.value.glyphs[glyphIndex][field] = processedValue;
+      console.log("Updated glyph:", gtfData.value.glyphs[glyphIndex]);
+  } else {
+      console.error(`Attempted to update unknown field '${field}' on glyph.`);
+  }
 
   // If the name was changed, we might need to force reactivity update for the list title
   // (Vue might not detect deep changes in the title computation automatically)

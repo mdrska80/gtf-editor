@@ -36,7 +36,7 @@ Tento dokument popisuje technickou specifikaci pro editor GTF souborů a slouž�
 
 ### 3.4. Editace Glypha
 - **Metadata:**
-    - [x] Zobrazení a možnost úpravy polí `GLYPH` (název), `UNICODE`, `CHAR`, `SIZE` (zobrazení hotovo).
+    - [x] Zobrazení a možnost úpravy polí `GLYPH` (název), `UNICODE`, `CHAR`, `SIZE` (zobrazení a editace hotovo, bez dopadu na bitmapu).
 - **Paleta (pro barevné glyphy):**
     - [-] Zobrazení aktuální palety (znak a barva) (zatím jen stav: počet barev/monochrome).
     - [ ] Možnost přidat/odebrat/upravit barvu v paletě (včetně výběru barvy např. pomocí color pickeru).

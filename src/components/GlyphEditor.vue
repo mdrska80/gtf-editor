@@ -28,10 +28,11 @@
           ></v-text-field>
           <v-text-field 
             label="Size (WxH)" 
-            :model-value="formattedSize" 
+            v-model="sizeInput" 
+            @change="handleSizeChange" 
+            :error-messages="sizeError" 
             placeholder="e.g., 5x7"
-            readonly
-            hint="Bitmap size - edit later"
+            hint="Enter width x height"
           ></v-text-field>
         </v-form>
       </v-col>
@@ -62,7 +63,7 @@
 </template>
 
 <script setup>
-import { defineProps, computed, defineEmits } from 'vue';
+import { defineProps, ref, watch, defineEmits } from 'vue';
 
 // Define the expected props
 const props = defineProps({
@@ -75,15 +76,50 @@ const props = defineProps({
 // Define the events that this component can emit
 const emit = defineEmits(['update:glyphField']);
 
-// Computed property to format the size object
-const formattedSize = computed(() => {
-  if (props.glyphData && props.glyphData.size) {
-    return `${props.glyphData.size.width}x${props.glyphData.size.height}`;
-  }
-  return ''; // Return empty string if size is not set
-});
+// Local state for the size input field
+const sizeInput = ref('');
+const sizeError = ref(''); // Error message for size input
 
-// Later: Define emits to send updated data back
+// Watch for changes in the incoming glyph data to update the local input
+watch(() => props.glyphData, (newGlyphData) => {
+  if (newGlyphData && newGlyphData.size) {
+    sizeInput.value = `${newGlyphData.size.width}x${newGlyphData.size.height}`;
+  } else if (newGlyphData) {
+    sizeInput.value = ''; // Clear if size is null/undefined in new data
+  } else {
+    sizeInput.value = ''; // Clear if glyphData itself is null
+  }
+  sizeError.value = ''; // Clear error on data change
+}, { immediate: true }); // Run immediately on component mount
+
+// Validate and emit size changes
+function handleSizeChange() {
+  sizeError.value = ''; // Clear previous error
+  const value = sizeInput.value.trim();
+  if (!value) {
+    // Allow clearing the size - emit null
+    emit('update:glyphField', { field: 'size', value: null });
+    return;
+  }
+
+  const sizeRegex = /^(\d+)x(\d+)$/;
+  const match = value.match(sizeRegex);
+
+  if (match) {
+    const width = parseInt(match[1], 10);
+    const height = parseInt(match[2], 10);
+
+    if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
+      sizeError.value = 'Width and height must be positive numbers.';
+    } else {
+      // Emit the structured size object
+      emit('update:glyphField', { field: 'size', value: { width, height } });
+    }
+  } else {
+    sizeError.value = 'Invalid format. Use WxH (e.g., 5x7).';
+  }
+}
+
 </script>
 
 <style scoped>
