@@ -88,6 +88,53 @@ function updateHeaderData({ field, value }) {
   }
 }
 
+// Function to update glyph data based on emitted event
+function updateGlyphData({ field, value }) {
+  if (!gtfData.value || !selectedGlyphName.value) {
+    console.warn("Attempted to update glyph data, but gtfData or selectedGlyphName is null.");
+    return;
+  }
+  
+  const glyphIndex = gtfData.value.glyphs.findIndex(g => g.name === selectedGlyphName.value);
+  
+  if (glyphIndex === -1) {
+     console.warn(`Attempted to update glyph data, but glyph with name '${selectedGlyphName.value}' not found.`);
+     return;
+  }
+
+  // Handle specific fields
+  let processedValue = value;
+  if (field === 'char_repr') {
+      // Ensure only the first character is taken, or null if empty
+      processedValue = value.length > 0 ? value.charAt(0) : null;
+  } else if (field === 'unicode' || field === 'name') {
+      // For optional string fields like unicode, or required like name, set to null if empty string is entered
+      processedValue = value.trim() === '' ? null : value;
+      // Special handling for name: if name changes, update selectedGlyphName
+      if (field === 'name' && processedValue !== null) {
+         // Important: Need validation here to prevent duplicate names!
+         // For now, just update the selection if name changed
+         selectedGlyphName.value = processedValue;
+      } else if (field === 'name' && processedValue === null) {
+          // Prevent setting name to null/empty - should show validation error later
+          console.error("Glyph name cannot be empty.");
+          return; // Don't update if name is empty
+      }
+  }
+  // Add handling for other fields like size later
+  
+  // Update the data
+  gtfData.value.glyphs[glyphIndex][field] = processedValue;
+  console.log("Updated glyph:", gtfData.value.glyphs[glyphIndex]);
+
+  // If the name was changed, we might need to force reactivity update for the list title
+  // (Vue might not detect deep changes in the title computation automatically)
+  // A simple way (though not ideal) is to temporarily reset the array
+  // if (field === 'name') {
+  //   gtfData.value.glyphs = [...gtfData.value.glyphs];
+  // }
+}
+
 // Placeholder for the currently selected glyph ID/name
 // const selectedGlyph = ref(null);
 
@@ -151,6 +198,7 @@ function updateHeaderData({ field, value }) {
       <GlyphEditor 
         v-else-if="currentView === 'glyph' && selectedGlyphData" 
         :glyphData="selectedGlyphData" 
+        @update:glyphField="updateGlyphData"
       />
       <v-container v-else>
         <p v-if="!gtfData">Please open a GTF file using the button above.</p>

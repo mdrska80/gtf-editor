@@ -5,29 +5,33 @@
     <v-row>
       <v-col cols="12" md="6">
         <h3>Metadata</h3>
-        <v-form>
+        <v-form @submit.prevent>
           <v-text-field 
             label="Glyph Name" 
             :model-value="glyphData.name" 
-            readonly
+            @update:model-value="$emit('update:glyphField', { field: 'name', value: $event })"
           ></v-text-field>
           <v-text-field 
             label="Unicode" 
             :model-value="glyphData.unicode || ''" 
-            placeholder="Not set"
-            readonly
+            @update:model-value="$emit('update:glyphField', { field: 'unicode', value: $event })"
+            placeholder="U+XXXX"
+            hint="Format: U+XXXX"
           ></v-text-field>
           <v-text-field 
             label="Character" 
             :model-value="glyphData.char_repr || ''" 
-            placeholder="Not set"
-            readonly
+            @update:model-value="$emit('update:glyphField', { field: 'char_repr', value: $event })"
+            placeholder="Single character"
+            maxlength="1" 
+            counter
           ></v-text-field>
           <v-text-field 
             label="Size (WxH)" 
             :model-value="formattedSize" 
-            placeholder="Not set"
+            placeholder="e.g., 5x7"
             readonly
+            hint="Bitmap size - edit later"
           ></v-text-field>
         </v-form>
       </v-col>
@@ -58,7 +62,7 @@
 </template>
 
 <script setup>
-import { defineProps, computed } from 'vue';
+import { defineProps, computed, defineEmits } from 'vue';
 
 // Define the expected props
 const props = defineProps({
@@ -67,6 +71,9 @@ const props = defineProps({
     required: true,
   }
 });
+
+// Define the events that this component can emit
+const emit = defineEmits(['update:glyphField']);
 
 // Computed property to format the size object
 const formattedSize = computed(() => {
