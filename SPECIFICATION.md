@@ -25,7 +25,7 @@ Tento dokument popisuje technickou specifikaci pro editor GTF souborů a slouž�
 - [ ] Vytvoření nového, prázdného GTF dokumentu.
 
 ### 3.2. Editace Hlavičky
-- [ ] Zobrazení polí `FONT`, `VERSION`, `AUTHOR`, `DESCRIPTION`.
+- [x] Zobrazení polí `FONT`, `VERSION`, `AUTHOR`, `DESCRIPTION`.
 - [ ] Možnost úpravy hodnot těchto polí.
 
 ### 3.3. Správa Glyphů
@@ -60,7 +60,7 @@ Tento dokument popisuje technickou specifikaci pro editor GTF souborů a slouž�
 
 ## 4. Uživatelské Rozhraní (UI)
 - [-] Jednoduché a intuitivní rozložení.
-- [ ] Panel pro editaci hlavičky.
+- [x] Panel pro editaci hlavičky (zobrazení dat).
 - [ ] Panel se seznamem glyphů.
 - [ ] Hlavní oblast pro editaci vybraného glyphu (metadata, paleta, bitmapa).
 - [ ] Vizuální zpětná vazba při akcích (ukládání, chyby parsování atd.).
