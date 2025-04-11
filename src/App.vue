@@ -1,28 +1,33 @@
 <script setup>
-// We can keep the imports for later use
-// import { ref } from "vue";
-// import { invoke } from "@tauri-apps/api/core";
+// import { ref } from "vue"; // Keep for later
 </script>
 
 <template>
-  <v-app>
+  <v-app id="inspire">
+    <v-app-bar>
+      <v-app-bar-title>GTF Editor</v-app-bar-title>
+      <!-- Placeholder for potential menu/buttons -->
+    </v-app-bar>
+
+    <v-navigation-drawer permanent>
+      <v-list>
+        <v-list-item title="Glyphs List" subtitle="Placeholder"></v-list-item>
+        <!-- TODO: Populate with actual glyphs -->
+      </v-list>
+    </v-navigation-drawer>
+
     <v-main>
       <v-container>
-        <h1>GTF Editor</h1>
-        <p>Welcome! Vuetify is working.</p>
-        <v-btn color="primary">
-          Test Button
-          <v-icon end icon="mdi-checkbox-marked-circle"></v-icon>
-        </v-btn>
+        <h2>Main Content Area</h2>
+        <p>Here we will display the header editor or the selected glyph editor.</p>
       </v-container>
     </v-main>
   </v-app>
 </template>
 
 <style scoped>
-/* We can remove scoped styles for now */
+/* Add some basic styling if needed */
 </style>
 <style>
-/* Remove the global styles provided by the template,
-   Vuetify provides its own base styling. */
+/* Global styles if needed */
 </style>
