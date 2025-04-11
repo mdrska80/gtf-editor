@@ -74,6 +74,20 @@ function selectHeader() {
   currentView.value = 'header'; // Switch view to header editor
 }
 
+// Function to update header data based on emitted event
+function updateHeaderData({ field, value }) {
+  console.log(`updateHeaderData called for field: ${field} with value: ${value}`);
+  if (gtfData.value && gtfData.value.header) {
+    // Handle empty string input: set corresponding field to null (or empty string based on backend expectation)
+    // For simplicity, we'll set to null if value is empty, otherwise keep the value.
+    // Rust side uses Option<String>, so null/None is appropriate.
+    gtfData.value.header[field] = value.trim() === '' ? null : value;
+    console.log("Updated header:", gtfData.value.header);
+  } else {
+    console.warn("Attempted to update header data, but gtfData or header is null.");
+  }
+}
+
 // Placeholder for the currently selected glyph ID/name
 // const selectedGlyph = ref(null);
 
@@ -129,8 +143,15 @@ function selectHeader() {
         </v-alert>
       </v-container>
       <!-- Display Editors or placeholder -->
-      <HeaderEditor v-else-if="currentView === 'header' && gtfData" :headerData="gtfData.header" />
-      <GlyphEditor v-else-if="currentView === 'glyph' && selectedGlyphData" :glyphData="selectedGlyphData" />
+      <HeaderEditor 
+        v-else-if="currentView === 'header' && gtfData" 
+        :headerData="gtfData.header" 
+        @update:headerField="updateHeaderData"
+      />
+      <GlyphEditor 
+        v-else-if="currentView === 'glyph' && selectedGlyphData" 
+        :glyphData="selectedGlyphData" 
+      />
       <v-container v-else>
         <p v-if="!gtfData">Please open a GTF file using the button above.</p>
         <p v-else>Select an item from the list on the left.</p>

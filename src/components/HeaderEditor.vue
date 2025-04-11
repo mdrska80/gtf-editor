@@ -1,38 +1,38 @@
 <template>
   <v-container v-if="headerData">
     <h2>Header Editor</h2>
-    <v-form>
+    <v-form @submit.prevent>
       <v-text-field
         label="Font Name"
         :model-value="headerData.font_name || ''"
+        @update:model-value="$emit('update:headerField', { field: 'font_name', value: $event })"
         hint="Enter the font name"
         persistent-hint
-        readonly
       ></v-text-field>
 
       <v-text-field
         label="Version"
         :model-value="headerData.version || ''"
+        @update:model-value="$emit('update:headerField', { field: 'version', value: $event })"
         hint="Enter the font/format version"
         persistent-hint
-        readonly
       ></v-text-field>
 
       <v-text-field
         label="Author"
         :model-value="headerData.author || ''"
+        @update:model-value="$emit('update:headerField', { field: 'author', value: $event })"
         hint="Enter the author's name"
         persistent-hint
-        readonly
       ></v-text-field>
 
       <v-textarea
         label="Description"
         :model-value="headerData.description || ''"
+        @update:model-value="$emit('update:headerField', { field: 'description', value: $event })"
         hint="Enter an optional description"
         persistent-hint
         rows="3"
-        readonly
       ></v-textarea>
     </v-form>
   </v-container>
@@ -42,7 +42,7 @@
 </template>
 
 <script setup>
-import { defineProps } from 'vue';
+import { defineProps, defineEmits } from 'vue';
 
 // Define the expected props
 const props = defineProps({
@@ -53,6 +53,9 @@ const props = defineProps({
     // default: () => ({ font_name: null, version: null, author: null, description: null })
   }
 });
+
+// Define the events that this component can emit
+const emit = defineEmits(['update:headerField']);
 
 // Later: Define emits to send updated data back
 </script>
