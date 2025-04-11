@@ -38,9 +38,9 @@ Tento dokument popisuje technickou specifikaci pro editor GTF souborů a slouž�
 - **Metadata:**
     - [x] Zobrazení a možnost úpravy polí `GLYPH` (název), `UNICODE`, `CHAR`, `SIZE` (zobrazení a editace hotovo, bez dopadu na bitmapu).
 - **Paleta (pro barevné glyphy):**
-    - [-] Zobrazení aktuální palety (znak a barva) (zatím jen stav: počet barev/monochrome).
-    - [ ] Možnost přidat/odebrat/upravit barvu v paletě (včetně výběru barvy např. pomocí color pickeru).
-    - [ ] Přepínání mezi monochromatickým a barevným režimem glyphu (přidání/odebrání sekce `PALETTE`).
+    - [x] Zobrazení aktuální palety (znak a barva).
+    - [x] Možnost přidat/odebrat/upravit barvu v paletě (včetně výběru barvy např. pomocí color pickeru) (bez color pickeru).
+    - [x] Přepínání mezi monochromatickým a barevným režimem glyphu (přidání/odebrání sekce `PALETTE`).
 - **Bitmapový Editor:**
     - [-] Vizuální zobrazení bitmapy glyphu jako mřížky (gridu) podle `SIZE` (zatím jen textový výpis).
     - [ ] Možnost "kreslit" do mřížky kliknutím myši:
@@ -64,7 +64,7 @@ Tento dokument popisuje technickou specifikaci pro editor GTF souborů a slouž�
 - [-] Jednoduché a intuitivní rozložení.
 - [x] Panel pro editaci hlavičky (zobrazení dat).
 - [x] Panel se seznamem glyphů (zobrazení a výběr).
-- [-] Hlavní oblast pro editaci vybraného glyphu (metadata, paleta, bitmapa) (zobrazení metadat hotovo).
+- [-] Hlavní oblast pro editaci vybraného glyphu (metadata, paleta, bitmapa) (zobrazení metadat a palety hotovo).
 - [ ] Vizuální zpětná vazba při akcích (ukládání, chyby parsování atd.).
 
 ## 5. Možná Budoucí Rozšíření (Mimo MVP)

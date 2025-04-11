@@ -164,6 +164,9 @@ function updateGlyphData({ field, value }) {
      processedValue = value; 
      // TODO: When size changes, we might need to resize/clear the bitmap data!
      // This requires careful handling later.
+  } else if (field === 'palette') {
+    // Palette value is either the palette object or null
+    processedValue = value;
   }
   // Add handling for other fields like size later
   
@@ -171,7 +174,7 @@ function updateGlyphData({ field, value }) {
   // Make sure we are not trying to set an unknown field
   if (field in gtfData.value.glyphs[glyphIndex]) {
       gtfData.value.glyphs[glyphIndex][field] = processedValue;
-      console.log("Updated glyph:", gtfData.value.glyphs[glyphIndex]);
+      console.log(`Updated glyph field '${field}':`, gtfData.value.glyphs[glyphIndex]);
   } else {
       console.error(`Attempted to update unknown field '${field}' on glyph.`);
   }

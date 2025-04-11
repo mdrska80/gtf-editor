@@ -39,10 +39,71 @@
 
       <v-col cols="12" md="6">
         <h3>Palette</h3>
-        <!-- TODO: Palette editor (optional) -->
-        <p v-if="glyphData.palette">({{ glyphData.palette.entries ? Object.keys(glyphData.palette.entries).length : 0 }} colors)</p>
-        <p v-else>(Monochrome)</p>
-        <p>(Palette editor placeholder)</p>
+        
+        <v-switch
+          :model-value="isColorMode"
+          @update:model-value="toggleColorMode"
+          :label="isColorMode ? 'Color Mode' : 'Monochrome Mode'"
+          color="primary"
+          inset
+        ></v-switch>
+
+        <template v-if="isColorMode && glyphData.palette">
+          <v-list density="compact" lines="one">
+            <v-list-item 
+              v-for="(color, char) in glyphData.palette.entries" 
+              :key="char"
+              class="palette-item"
+            >
+              <template v-slot:prepend>
+                <div class="color-swatch" :style="{ backgroundColor: color }"></div>
+              </template>
+              <v-list-item-title><code class="char-code">{{ char }}</code> : {{ color }}</v-list-item-title>
+              <template v-slot:append>
+                <v-btn 
+                  icon="mdi-delete" 
+                  variant="text" 
+                  size="small" 
+                  @click="removePaletteEntry(char)"
+                  title="Remove Color"
+                ></v-btn>
+              </template>
+            </v-list-item>
+             <v-list-item v-if="!glyphData.palette.entries || Object.keys(glyphData.palette.entries).length === 0">
+                <v-list-item-title class="text-grey">Palette is empty.</v-list-item-title>
+             </v-list-item>
+          </v-list>
+
+          <v-divider class="my-4"></v-divider>
+
+          <h4>Add New Color</h4>
+          <v-row dense>
+            <v-col cols="3">
+              <v-text-field 
+                label="Char"
+                v-model="newPaletteChar"
+                maxlength="1"
+                density="compact"
+                :error-messages="newPaletteError"
+              ></v-text-field>
+            </v-col>
+            <v-col cols="6">
+               <v-text-field 
+                label="Color (#RGB or #RRGGBB)"
+                v-model="newPaletteColor"
+                 density="compact"
+                 :error-messages="newPaletteError"
+              ></v-text-field>
+              <!-- TODO: Optionally add v-color-picker -->
+            </v-col>
+            <v-col cols="3">
+              <v-btn @click="addPaletteEntry" color="primary" block>Add</v-btn>
+            </v-col>
+          </v-row>
+        </template>
+        
+        <p v-else-if="!isColorMode">(Monochrome Mode - Uses '#' and '.')</p>
+
       </v-col>
     </v-row>
 
@@ -63,7 +124,7 @@
 </template>
 
 <script setup>
-import { defineProps, ref, watch, defineEmits } from 'vue';
+import { defineProps, ref, watch, defineEmits, computed } from 'vue';
 
 // Define the expected props
 const props = defineProps({
@@ -120,6 +181,75 @@ function handleSizeChange() {
   }
 }
 
+// --- Palette State & Logic ---
+const newPaletteChar = ref('');
+const newPaletteColor = ref('#FFFFFF');
+const newPaletteError = ref('');
+
+// Computed property to check if the glyph is in color mode (has a palette object)
+const isColorMode = computed(() => props.glyphData && props.glyphData.palette !== null && props.glyphData.palette !== undefined);
+
+// Toggle between color and monochrome mode
+function toggleColorMode() {
+  newPaletteError.value = ''; // Clear errors
+  let newPaletteValue = null;
+  if (!isColorMode.value) {
+    // Switching TO color mode: create empty palette if needed
+    newPaletteValue = props.glyphData.palette || { entries: {} }; 
+  } else {
+    // Switching TO monochrome mode: set palette to null
+    newPaletteValue = null;
+  }
+  emit('update:glyphField', { field: 'palette', value: newPaletteValue });
+}
+
+// Add a new entry to the palette
+function addPaletteEntry() {
+  newPaletteError.value = ''; // Clear previous error
+  const char = newPaletteChar.value.trim();
+  const color = newPaletteColor.value.trim();
+
+  if (char.length !== 1) {
+    newPaletteError.value = 'Enter a single character.';
+    return;
+  }
+  if (!/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(color)) {
+     newPaletteError.value = 'Invalid color format (#RGB or #RRGGBB).';
+     return;
+  }
+  if (!props.glyphData.palette || !props.glyphData.palette.entries) {
+      newPaletteError.value = 'Cannot add to non-existent palette.'; // Should not happen if switch works
+      return;
+  }
+  if (props.glyphData.palette.entries[char]) {
+       newPaletteError.value = `Character '${char}' already exists in palette.`;
+       return;
+  }
+
+  // Create a mutable copy of the entries
+  const updatedEntries = { ...props.glyphData.palette.entries };
+  updatedEntries[char] = color;
+  
+  // Emit the entire updated palette object
+  emit('update:glyphField', { field: 'palette', value: { entries: updatedEntries } });
+
+  // Clear input fields
+  newPaletteChar.value = '';
+  // newPaletteColor.value = '#FFFFFF'; // Keep last color?
+}
+
+// Remove an entry from the palette
+function removePaletteEntry(charToRemove) {
+  if (!props.glyphData.palette || !props.glyphData.palette.entries) return;
+  
+  // Create a mutable copy, excluding the character to remove
+  const updatedEntries = { ...props.glyphData.palette.entries };
+  delete updatedEntries[charToRemove];
+
+  // Emit the entire updated palette object
+  emit('update:glyphField', { field: 'palette', value: { entries: updatedEntries } });
+}
+
 </script>
 
 <style scoped>
@@ -131,5 +261,23 @@ pre {
   font-family: monospace;
   white-space: pre;
   overflow-x: auto;
+}
+.palette-item .v-list-item-title {
+  display: flex;
+  align-items: center;
+}
+.color-swatch {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #ccc;
+  margin-right: 10px;
+  display: inline-block;
+}
+.char-code {
+  font-family: monospace;
+  background-color: #f0f0f0;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-right: 5px;
 }
 </style> 
