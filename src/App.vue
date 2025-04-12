@@ -89,13 +89,25 @@ async function openFile() {
       console.log("File selection cancelled.");
     }
   } catch (error) {
-    console.error("Error loading or parsing file:", error);
-    currentError.value = `Error: ${error}`;
-    gtfData.value = null; // Clear data on error
-    currentView.value = null;
-    selectedGlyphName.value = null;
-    currentFilePath.value = null; // Clear path on error
-    alert(`Failed to load file: ${error}`); // Simple error feedback
+    const errorString = String(error); // Ensure error is a string
+    console.error("Error loading or parsing file:", errorString);
+    
+    // Check for the specific known inconsistency error
+    if (errorString.includes('more bitmap lines than expected')) {
+      console.warn("Known inconsistency: Parser found mismatched bitmap lines vs SIZE. Allowing edit to continue.");
+      currentError.value = `Warning: File loaded with known inconsistency (bitmap lines vs SIZE). Please review glyph definitions.`;
+      // Keep potentially partially loaded data and view
+      // gtfData.value = ???; // Maybe keep data if backend sends partial?
+      // currentView.value = 'header'; // Allow user to inspect
+    } else {
+      // Handle other unexpected errors as before
+      currentError.value = `Error: ${errorString}`;
+      gtfData.value = null; // Clear data on unexpected error
+      currentView.value = null;
+      selectedGlyphName.value = null;
+      currentFilePath.value = null; // Clear path on unexpected error
+      alert(`Failed to load file: ${errorString}`); // Show alert for unexpected errors
+    }
   }
 }
 

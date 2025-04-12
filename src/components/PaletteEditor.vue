@@ -1,170 +1,235 @@
 <template>
   <div>
-    <!-- Display Palette Entries using PaletteItem -->
-    <v-list density="compact" lines="one">
-      <PaletteItem
-        v-for="(color, char) in entries" 
-        :key="char"
-        :char="char"
-        :color="color"
-        @remove="removePaletteEntry"
-        @edit="startEditingEntry"
-      />
-      <v-list-item v-if="!entries || Object.keys(entries).length === 0">
-         <v-list-item-title>(Palette is empty)</v-list-item-title>
-      </v-list-item>
-    </v-list>
+    <!-- List of existing entries -->
+    <div v-for="(entry, index) in localEntries" :key="index" class="palette-entry">
+      <!-- Character Input -->
+      <v-text-field
+        v-model="entry.char"
+        label="Char"
+        maxlength="1"
+        density="compact"
+        @change="updateEntry(index)"
+        class="char-input"
+      ></v-text-field>
 
-    <v-divider class="my-4"></v-divider>
+      <!-- Color Input -->
+      <v-text-field
+        v-model="entry.color"
+        label="Color (Hex)"
+        :rules="[rules.required, rules.hexColor]" 
+        density="compact"
+        @change="updateEntry(index)"
+        class="color-input"
+      ></v-text-field>
 
-    <!-- Add/Edit Entry Form -->
-    <h4>{{ isEditing ? 'Update Color' : 'Add New Color' }}</h4>
-     <v-row dense>
-       <v-col cols="3">
-         <v-text-field 
-           label="Char"
-           v-model="editPaletteChar"
-           maxlength="1"
-           density="compact"
-           :error-messages="editPaletteError"
-           :readonly="isEditing" 
-           :variant="isEditing ? 'filled' : 'outlined'" 
-         ></v-text-field>
-       </v-col>
-       <v-col cols="6">
-          <v-text-field 
-           label="Color (#RGB/RRGGBB)"
-           v-model="editPaletteColor"
-            density="compact"
-            :error-messages="editPaletteError"
-         ></v-text-field>
-         <!-- TODO: Add color picker integration later -->
-         <!-- <v-color-picker v-model="editPaletteColor" hide-inputs></v-color-picker> -->
-       </v-col>
-       <v-col cols="3">
-         <v-btn @click="addOrUpdateEntry" :color="isEditing ? 'success' : 'primary'" block>
-            {{ isEditing ? 'Update' : 'Add' }}
-         </v-btn>
-       </v-col>
-     </v-row>
-     <v-btn v-if="isEditing" @click="cancelEditing" size="small" variant="text" class="mt-2">Cancel Edit</v-btn>
+      <!-- NEW: Color Preview Swatch -->
+      <div 
+        class="color-preview-swatch"
+        :style="{ backgroundColor: entry.color }"
+        :class="{ 'invalid-color': !isColorValid(entry.color) }"
+        :title="isColorValid(entry.color) ? entry.color : 'Invalid Hex Color'"
+      ></div>
+
+      <!-- Remove Button -->
+      <v-btn icon="mdi-delete" size="small" variant="text" @click="removeEntry(index)" title="Remove Entry"></v-btn>
+    </div>
+
+    <!-- Error Message -->
+    <v-alert v-if="error" type="error" density="compact" class="mt-2">{{ error }}</v-alert>
+
+    <!-- Add Entry Button -->
+    <v-btn @click="openAddDialog" prepend-icon="mdi-plus" size="small" class="mt-2">Add Entry</v-btn>
+
+    <!-- Add/Edit Dialog (remains mostly unchanged) -->
+    <v-dialog v-model="dialog" max-width="300px">
+      <v-card>
+        <v-card-title>Add New Palette Entry</v-card-title>
+        <v-card-text>
+            <v-text-field 
+                v-model="newEntry.char" 
+                label="Character (single)" 
+                maxlength="1"
+                required
+                :rules="[rules.required, rules.uniqueChar]"
+            ></v-text-field>
+            <v-text-field 
+                v-model="newEntry.color" 
+                label="Color (e.g., #FFFFFF)" 
+                required
+                :rules="[rules.required, rules.hexColor]"
+            ></v-text-field>
+             <!-- Simple swatch in dialog too -->
+             <div v-if="newEntry.color" 
+                  class="color-preview-swatch ml-2"
+                  :style="{ backgroundColor: newEntry.color }"
+                  :class="{ 'invalid-color': !isColorValid(newEntry.color) }"
+                  style="display: inline-block; vertical-align: middle;"
+             ></div>
+             <v-alert v-if="dialogError" type="error" density="compact" class="mt-2">{{ dialogError }}</v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn text @click="closeDialog">Cancel</v-btn>
+          <v-btn color="primary" @click="confirmAddEntry">Add</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
   </div>
 </template>
 
 <script setup>
-import { defineProps, defineEmits, ref, computed } from 'vue';
-import PaletteItem from './PaletteItem.vue'; // Import the new item component
+import { ref, watch, defineProps, defineEmits, reactive } from 'vue';
 
-// Props
 const props = defineProps({
-  entries: {
-    type: Object, 
-    required: true,
-    default: () => ({})
+  entries: { // Expecting { char: color, ... }
+    type: Object,
+    required: true
   }
 });
 
-// Emits
 const emit = defineEmits(['update:palette']);
 
-// State for Add/Edit form
-const editPaletteChar = ref('');
-const editPaletteColor = ref('#FFFFFF');
-const editPaletteError = ref('');
-const editingCharKey = ref(null); // Store the key of the char being edited
+// Local reactive copy of entries for easier manipulation
+const localEntries = ref([]);
+const error = ref('');
+const dialog = ref(false);
+const dialogError = ref('');
+const newEntry = reactive({ char: '', color: '#FFFFFF' });
 
-// Computed property to determine if we are in edit mode
-const isEditing = computed(() => editingCharKey.value !== null);
-
-// Function to populate the form for editing
-function startEditingEntry({ char, color }) {
-    console.log(`Editing entry: ${char} - ${color}`);
-    editingCharKey.value = char;
-    editPaletteChar.value = char;
-    editPaletteColor.value = color;
-    editPaletteError.value = ''; // Clear any previous errors
+// Helper to check hex color validity
+function isColorValid(color) {
+  return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/i.test(String(color || ''));
 }
 
-// Function to clear the editing state and form
-function cancelEditing() {
-    editingCharKey.value = null;
-    editPaletteChar.value = '';
-    editPaletteColor.value = '#FFFFFF';
-    editPaletteError.value = '';
-}
+// Convert incoming object prop to local array format
+watch(() => props.entries, (newEntries) => {
+  localEntries.value = Object.entries(newEntries || {}).map(([char, color]) => ({ char, color }));
+}, { immediate: true, deep: true });
 
-// Add or Update an entry
-function addOrUpdateEntry() {
-  editPaletteError.value = ''; 
-  const char = editPaletteChar.value.trim();
-  const color = editPaletteColor.value.trim();
-
-  if (char.length !== 1) {
-    editPaletteError.value = 'Enter a single character.';
-    return;
+// Rules for validation
+const rules = {
+  required: value => !!value || 'Required.',
+  hexColor: value => isColorValid(value) || 'Invalid Hex (#XXX or #XXXXXX).',
+  uniqueChar: value => {
+    // Check against existing entries *outside* the dialog
+    const isUnique = !localEntries.value.some(entry => entry.char === value);
+    return isUnique || 'Character already exists in palette.';
   }
-  if (!/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(color)) {
-     editPaletteError.value = 'Invalid color format (#RGB or #RRGGBB).';
-     return;
+};
+
+// Function to emit updates when localEntries change
+function emitUpdate() {
+  error.value = '';
+  // Validate all entries before emitting
+  const isValid = localEntries.value.every(entry => entry.char && entry.color && isColorValid(entry.color));
+  if (!isValid) {
+      error.value = 'Some palette entries are invalid.';
+      // Optionally prevent emitting if invalid, or let parent handle potential bad state?
+      // For now, we still emit, but show an error locally.
   }
   
-  const currentEntries = props.entries || {};
+  // Convert back to object format for emitting
+  const updatedEntriesObject = localEntries.value.reduce((obj, entry) => {
+      if (entry.char) { // Only include entries with a character
+          obj[entry.char] = entry.color || '';
+      }
+      return obj;
+  }, {});
+  emit('update:palette', updatedEntriesObject);
+}
 
-  // If adding (not editing), check if char already exists
-  if (!isEditing.value && currentEntries[char]) {
-       editPaletteError.value = `Character '${char}' already exists in palette.`;
+// Called when inputs change in the list
+function updateEntry(index) {
+  // Optional: Add validation check here if needed
+  // Ensure the character is not empty before potentially emitting
+  if (!localEntries.value[index].char) {
+      error.value = `Entry at index ${index} cannot have an empty character.`;
+      return; // Prevent emitting update with empty char key
+  }
+  // Check for duplicate characters on edit
+  const currentChar = localEntries.value[index].char;
+  const count = localEntries.value.filter(e => e.char === currentChar).length;
+  if (count > 1) {
+      error.value = `Character '${currentChar}' is duplicated. Please use unique characters.`;
+      // Don't emit yet, let user fix it.
+      return; 
+  }
+  emitUpdate(); 
+}
+
+function removeEntry(index) {
+  localEntries.value.splice(index, 1);
+  emitUpdate();
+}
+
+function openAddDialog() {
+  newEntry.char = '';
+  newEntry.color = '#FFFFFF';
+  dialogError.value = '';
+  dialog.value = true;
+}
+
+function closeDialog() {
+  dialog.value = false;
+}
+
+function confirmAddEntry() {
+  dialogError.value = ''; // Clear previous error
+  // Validate new entry before adding
+  if (!newEntry.char) {
+      dialogError.value = 'Character is required.';
+      return;
+  }
+   if (localEntries.value.some(entry => entry.char === newEntry.char)) {
+       dialogError.value = 'Character already exists in palette.';
        return;
-  }
+   }
+   if (!isColorValid(newEntry.color)) {
+       dialogError.value = 'Invalid Hex color format (#XXX or #XXXXXX).';
+       return;
+   }
 
-  // Create a mutable copy 
-  const updatedEntries = { ...currentEntries };
-  updatedEntries[char] = color; // Add or overwrite the entry
-  
-  // Emit the update
-  emit('update:palette', updatedEntries);
-
-  // Reset form (clear editing state if we were editing)
-  cancelEditing(); 
-}
-
-// Remove an entry
-function removePaletteEntry(charToRemove) {
-  if (!props.entries) return;
-  
-  // Create a mutable copy, excluding the character to remove
-  const updatedEntries = { ...props.entries };
-  delete updatedEntries[charToRemove];
-
-  // Emit the update
-  emit('update:palette', updatedEntries);
-
-  // If we were editing the character that just got removed, cancel editing
-  if (editingCharKey.value === charToRemove) {
-      cancelEditing();
-  }
+  localEntries.value.push({ ...newEntry });
+  emitUpdate();
+  closeDialog();
 }
 
 </script>
 
 <style scoped>
-/* Styles copied from Header/Glyph Editor */
-.palette-item .v-list-item-title {
+.palette-entry {
   display: flex;
-  align-items: center;
+  align-items: center; /* Align items vertically */
+  gap: 8px; /* Add some space between elements */
+  margin-bottom: 8px;
 }
-.color-swatch {
-  width: 20px;
-  height: 20px;
-  border: 1px solid #ccc;
-  margin-right: 10px;
-  display: inline-block;
+
+.char-input {
+  max-width: 60px;
+  flex-shrink: 0; 
 }
-.char-code {
-  font-family: monospace;
-  background-color: #f0f0f0;
-  padding: 2px 4px;
-  border-radius: 3px;
-  margin-right: 5px;
+
+.color-input {
+  flex-grow: 1; /* Allow color input to take remaining space */
 }
-</style> 
+
+.color-preview-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid #ccc; /* Default border */
+  flex-shrink: 0; /* Prevent swatch from shrinking */
+  display: inline-block; /* Needed for alignment */
+  vertical-align: middle; /* Align with text fields */
+}
+
+.color-preview-swatch.invalid-color {
+    border: 2px solid red; /* Highlight invalid colors */
+}
+
+/* Ensure buttons don't stretch */
+.v-btn {
+    flex-shrink: 0;
+}
+</style>
