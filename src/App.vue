@@ -168,19 +168,27 @@ function addGlyph() {
   }
   newName = newName + counter;
 
+  // Determine initial size: Use header default or fallback
+  const initialSize = gtfData.value?.header?.default_size 
+                      ? { ...gtfData.value.header.default_size } // Use default if available (copy)
+                      : { width: 5, height: 7 }; // Fallback size
+  
+  // Create initial bitmap based on initialSize
+  const initialBitmap = Array(initialSize.height).fill('.'.repeat(initialSize.width));
+
   // Create a default glyph structure
   const newGlyph = {
       name: newName,
       unicode: null,
       char_repr: null,
-      size: { width: 5, height: 7 }, // Default size, can be adjusted
-      palette: { entries: {} }, // Always initialize with empty palette object
-      bitmap: Array(7).fill('.'.repeat(5)), // Create default bitmap based on size
+      size: initialSize, // Use determined initial size
+      palette: { entries: {} }, // Always initialize with empty palette
+      bitmap: initialBitmap, // Use generated initial bitmap
       validation_warnings: null
   };
 
   gtfData.value.glyphs.push(newGlyph);
-  console.log(`Added glyph: ${newName}`);
+  console.log(`Added glyph: ${newName} with size ${initialSize.width}x${initialSize.height}`);
 
   // Automatically select the new glyph
   selectGlyph(newName);
@@ -220,6 +228,11 @@ function updateHeaderData({ field, value }) {
           const newPalette = value && typeof value === 'object' && value.entries ? value : { entries: {} };
           gtfData.value.header[field] = newPalette; 
           console.log("Updated header default_palette:", gtfData.value.header.default_palette);
+      } else if (field === 'default_size') {
+          // Value should be { width, height } or null
+          const newSize = value && typeof value === 'object' && value.width && value.height ? value : null;
+          gtfData.value.header[field] = newSize;
+          console.log("Updated header default_size:", gtfData.value.header.default_size);
       } else {
           // Handle other header fields (FONT, VERSION, etc.)
           // Handle empty string input: set corresponding field to null

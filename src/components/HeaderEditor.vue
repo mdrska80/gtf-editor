@@ -34,6 +34,16 @@
             persistent-hint
             rows="3"
           ></v-textarea>
+          <v-text-field
+            label="Default Size (WxH)"
+            :model-value="defaultSizeInput"
+            @update:model-value="defaultSizeInput = $event"
+            @change="handleDefaultSizeChange" 
+            :error-messages="defaultSizeError" 
+            placeholder="e.g., 5x7"
+            hint="Default WxH for new glyphs"
+            persistent-hint
+          ></v-text-field>
         </v-form>
       </v-col>
 
@@ -56,7 +66,7 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits } from 'vue';
+import { defineProps, defineEmits, ref, watch } from 'vue';
 import PaletteEditor from './PaletteEditor.vue'; // Import the new component
 
 // Define the expected props
@@ -69,6 +79,48 @@ const props = defineProps({
 
 // Define the events that this component can emit
 const emit = defineEmits(['update:headerField']);
+
+// Local state for default size input
+const defaultSizeInput = ref('');
+const defaultSizeError = ref('');
+
+// Watch for changes in the incoming header data to update the local input
+watch(() => props.headerData.default_size, (newSize) => {
+  if (newSize) {
+    defaultSizeInput.value = `${newSize.width}x${newSize.height}`;
+  } else {
+    defaultSizeInput.value = ''; // Clear if size is null/undefined
+  }
+  defaultSizeError.value = ''; // Clear error on data change
+}, { immediate: true, deep: true }); // Use deep watch for object
+
+// Validate and emit default size changes
+function handleDefaultSizeChange() {
+  defaultSizeError.value = ''; // Clear previous error
+  const value = defaultSizeInput.value.trim();
+  if (!value) {
+    // Allow clearing the size - emit null
+    emit('update:headerField', { field: 'default_size', value: null });
+    return;
+  }
+
+  const sizeRegex = /^(\d+)x(\d+)$/;
+  const match = value.match(sizeRegex);
+
+  if (match) {
+    const width = parseInt(match[1], 10);
+    const height = parseInt(match[2], 10);
+
+    if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
+      defaultSizeError.value = 'Width and height must be positive numbers.';
+    } else {
+      // Emit the structured size object
+      emit('update:headerField', { field: 'default_size', value: { width, height } });
+    }
+  } else {
+    defaultSizeError.value = 'Invalid format. Use WxH (e.g., 5x7).';
+  }
+}
 
 // Function to handle updates from the PaletteEditor
 function handleDefaultPaletteUpdate(newEntries) {

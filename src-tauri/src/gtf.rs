@@ -34,6 +34,8 @@ pub struct GtfHeader {
     pub author: Option<String>,
     pub description: Option<String>,
     #[serde(default)] // Default if missing in JSON
+    pub default_size: Option<Size>, // Optional default size for new glyphs
+    #[serde(default)] // Default if missing in JSON
     pub default_palette: Option<Palette>, // Optional default palette for the font
 }
 
@@ -286,6 +288,9 @@ fn parse_header_line(line: &str, header: &mut GtfHeader) -> Result<(), String> {
          "VERSION" => header.version = Some(value.to_string()),
          "AUTHOR" => header.author = Some(value.to_string()),
          "DESCRIPTION" => header.description = Some(value.to_string()),
+         "DEFAULT_SIZE" => {
+             header.default_size = Some(Size::from_str(value)?); // Parse using FromStr
+         }
          // Ignore DEFAULT_PALETTE keyword here, handled by state machine
          "DEFAULT_PALETTE" => { 
               return Err("DEFAULT_PALETTE keyword should not have a value on the same line.".to_string());
@@ -419,6 +424,11 @@ pub fn serialize_gtf_document(document: &GtfDocument) -> Result<String, String> 
         writeln!(output, "DESCRIPTION {}", single_line_description).map_err(|e| e.to_string())?;
     }
     
+    // Serialize Default Size if present
+    if let Some(size) = &document.header.default_size {
+        writeln!(output, "DEFAULT_SIZE {}x{}", size.width, size.height).map_err(|e| e.to_string())?;
+    }
+
     // Serialize Default Palette if present and not empty
     if let Some(def_palette) = &document.header.default_palette {
         if !def_palette.entries.is_empty() {
