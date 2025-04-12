@@ -2,6 +2,7 @@
 import { ref, computed } from "vue";
 import HeaderEditor from './components/HeaderEditor.vue';
 import GlyphEditor from './components/GlyphEditor.vue';
+import GlyphPreviewBar from './components/GlyphPreviewBar.vue';
 // Import Tauri API functions
 import { invoke } from "@tauri-apps/api/core";
 // Import from the specific dialog plugin
@@ -22,6 +23,13 @@ const selectedGlyphData = computed(() => {
     return null;
   }
   return gtfData.value.glyphs.find(g => g.name === selectedGlyphName.value) || null;
+});
+
+// Process default palette once for passing down
+const processedDefaultPalette = computed(() => {
+    return gtfData.value?.header?.default_palette?.entries 
+           ? Object.entries(gtfData.value.header.default_palette.entries).map(([char, color]) => ({char, color})) 
+           : [];
 });
 
 // --- Functions ---
@@ -432,12 +440,22 @@ function updateGlyphData({ field, value, action }) {
     </v-navigation-drawer>
 
     <v-main>
+      <!-- Place Glyph Preview Bar INSIDE v-main -->
+      <GlyphPreviewBar 
+        v-if="gtfData && gtfData.glyphs && gtfData.glyphs.length > 0"
+        :glyphs="gtfData.glyphs"
+        :default-palette="processedDefaultPalette"
+        :selected-glyph-name="selectedGlyphName"
+        @select-glyph="selectGlyph"
+      />
+
       <!-- Display Error if any -->
       <v-container v-if="currentError">
         <v-alert type="error" variant="tonal" prominent border="start">
           {{ currentError }}
         </v-alert>
       </v-container>
+      
       <!-- Display Editors or placeholder -->
       <HeaderEditor 
         v-if="currentView === 'header' && gtfData" 
@@ -445,13 +463,12 @@ function updateGlyphData({ field, value, action }) {
         @update:header-field="updateHeaderData"
       />
       
-      <!-- Pass palette and monochrome status explicitly -->
       <GlyphEditor
         v-if="currentView === 'glyph' && selectedGlyphData"
         :key="selectedGlyphName" 
         :glyph-data="selectedGlyphData"
         :palette="selectedGlyphData.palette?.entries ? Object.entries(selectedGlyphData.palette.entries).map(([char, color]) => ({ char, color })) : []" 
-        :header-default-palette="gtfData?.header?.default_palette?.entries ? Object.entries(gtfData.header.default_palette.entries).map(([char, color]) => ({char, color})) : []"
+        :header-default-palette="processedDefaultPalette"
         @update:glyph-field="updateGlyphData"
       />
 
