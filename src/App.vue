@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import HeaderEditor from './components/HeaderEditor.vue';
 import GlyphEditor from './components/GlyphEditor.vue';
 import GlyphPreviewBar from './components/GlyphPreviewBar.vue';
+import LanguageCheckDialog from './components/LanguageCheckDialog.vue';
 // Import Tauri API functions
 import { invoke } from "@tauri-apps/api/core";
 // Import from the specific dialog plugin
@@ -14,6 +15,25 @@ const gtfData = ref(null); // Holds the parsed GTF document { header: {}, glyphs
 const currentError = ref(null); // Holds error messages
 const selectedGlyphName = ref(null); // Holds the name of the selected glyph
 const currentFilePath = ref(null); // Holds the path of the currently open file
+const languageDialogVisible = ref(false); // State for dialog visibility
+
+// --- Character Sets Data ---
+// Define common character sets
+const commonLowercase = 'abcdefghijklmnopqrstuvwxyz';
+const commonUppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const commonDigits = '0123456789';
+const commonPunctuation = '!"#$%&\'()*+,-./:;<=>?@[\]^_`{|}~ '; // Includes space
+const allCommon = commonLowercase + commonUppercase + commonDigits + commonPunctuation;
+
+const languageCharacterSets = {
+  Czech: 'áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ' + allCommon,
+  Slovak: 'áäčďéíĺľňóôŕšťúýžÁÄČĎÉÍĹĽŇÓÔŔŠŤÚÝŽ' + allCommon,
+  Romanian: 'ăâîșțĂÂÎȘȚ' + allCommon,
+  Hungarian: 'áéíóöőúüűÁÉÍÓÖŐÚÜŰ' + allCommon,
+  Estonian: 'äõöüšžÄÕÖÜŠŽ' + allCommon,
+  // Add a set containing only the common characters
+  "Basic Latin + Digits": allCommon
+};
 
 // --- Computed Properties ---
 
@@ -31,6 +51,11 @@ const processedDefaultPalette = computed(() => {
            ? Object.entries(gtfData.value.header.default_palette.entries).map(([char, color]) => ({char, color})) 
            : [];
 });
+
+// --- Watchers ---
+
+// Removed window title watcher
+// watch(currentFilePath, ...) 
 
 // --- Functions ---
 
@@ -346,6 +371,63 @@ function updateGlyphData({ field, value, action }) {
   // ... (Potential reactivity updates if needed)
 }
 
+// Function to add a glyph for a specific character
+function addSpecificGlyph(char) {
+  if (!gtfData.value || !char || char.length !== 1) {
+      console.error("Cannot add specific glyph: Invalid input.", {gtfData: !!gtfData.value, char});
+      return;
+  }
+  if (gtfData.value.glyphs.some(g => g.char_repr === char)) {
+      console.warn(`Glyph for character '${char}' already exists.`);
+      alert(`Glyph for character '${char}' already exists.`);
+      selectGlyph(gtfData.value.glyphs.find(g => g.char_repr === char).name); // Select existing
+      return;
+  }
+
+  // Generate name (simple for now)
+  let baseName = `Glyph_${char}`;
+  let newName = baseName;
+  let counter = 1;
+  const existingNames = new Set(gtfData.value.glyphs.map(g => g.name));
+  while (existingNames.has(newName)) {
+      newName = `${baseName}_${counter}`;
+      counter++;
+  }
+
+  // Calculate Unicode
+  let unicodeString = null;
+  try {
+      const codePoint = char.codePointAt(0);
+      if (codePoint !== undefined) {
+          unicodeString = `U+${codePoint.toString(16).toUpperCase().padStart(4, '0')}`;
+      }
+  } catch (e) { console.error("Error getting code point:", e); }
+
+  // Determine initial size
+  const initialSize = gtfData.value?.header?.default_size 
+                      ? { ...gtfData.value.header.default_size } 
+                      : { width: 5, height: 7 }; 
+  
+  const initialBitmap = Array(initialSize.height).fill('.'.repeat(initialSize.width));
+
+  const newGlyph = {
+      name: newName,
+      unicode: unicodeString,
+      char_repr: char,
+      size: initialSize, 
+      palette: { entries: {} }, 
+      bitmap: initialBitmap,
+      validation_warnings: null
+  };
+
+  gtfData.value.glyphs.push(newGlyph);
+  console.log(`Added specific glyph '${newName}' for character '${char}'`);
+
+  // Select the new glyph
+  selectGlyph(newName);
+  languageDialogVisible.value = false; // Close dialog after adding
+}
+
 // Placeholder for the currently selected glyph ID/name
 // const selectedGlyph = ref(null);
 
@@ -380,6 +462,13 @@ function updateGlyphData({ field, value, action }) {
         :disabled="!gtfData" 
       >
         Save As...
+      </v-btn>
+      <v-btn 
+        prepend-icon="mdi-translate" 
+        @click="languageDialogVisible = true"
+        :disabled="!gtfData"
+       >
+        Language Check
       </v-btn>
       <!-- Placeholder for more menu/buttons -->
     </v-app-bar>
@@ -482,6 +571,15 @@ function updateGlyphData({ field, value, action }) {
       </v-container>
 
     </v-main>
+
+    <!-- Language Check Dialog -->
+    <LanguageCheckDialog 
+      v-model="languageDialogVisible"
+      :glyphs="gtfData?.glyphs || []"
+      :character-sets="languageCharacterSets"
+      @add-glyph-for-char="addSpecificGlyph"
+    />
+
   </v-app>
 </template>
 
