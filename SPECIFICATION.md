@@ -60,6 +60,13 @@ Tento dokument popisuje technickou specifikaci pro editor GTF souborů a slouž�
   - **Tauri Command:** `save_gtf_file` (v `lib.rs`) - zavolá serializaci a zapíše do souboru.
 - [x] Základní validace formátu při načítání a upozornění uživatele na chyby (implementováno v rámci `parse_gtf_content`).
 
+### 3.6. Nástroje a Utility
+- [x] Kontrola Znakové Sady Jazyka (Language Check Dialog):
+    - [x] Dialog pro výběr jazyka (CZ, SK, RO, HU, EE + základní ASCII).
+    - [x] Zobrazení požadovaných znaků pro vybraný jazyk.
+    - [x] Vizuální odlišení existujících (zelené pozadí, fajfka) a chybějících (červené pozadí) glyphů podle `CHAR`.
+    - [x] Možnost rychle přidat chybějící glyph kliknutím na tlačítko '+' vedle znaku.
+
 ## 4. Uživatelské Rozhraní (UI)
 - [-] Jednoduché a intuitivní rozložení.
 - [x] Panel pro editaci hlavičky (zobrazení dat).
