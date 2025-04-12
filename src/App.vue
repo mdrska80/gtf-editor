@@ -12,6 +12,7 @@ const currentView = ref(null); // Possible values: null, 'header', 'glyph'
 const gtfData = ref(null); // Holds the parsed GTF document { header: {}, glyphs: [] }
 const currentError = ref(null); // Holds error messages
 const selectedGlyphName = ref(null); // Holds the name of the selected glyph
+const currentFilePath = ref(null); // Holds the path of the currently open file
 
 // --- Computed Properties ---
 
@@ -30,6 +31,7 @@ async function openFile() {
   gtfData.value = null; // Clear previous data
   selectedGlyphName.value = null;
   currentView.value = null;
+  currentFilePath.value = null; // Reset file path
   try {
     const selectedPath = await open({
       multiple: false,
@@ -47,6 +49,7 @@ async function openFile() {
       const document = await invoke('load_gtf_file', { path: selectedPath });
       console.log("Parsed document:", document);
       gtfData.value = document; // Store the parsed data
+      currentFilePath.value = selectedPath; // Store the path
       currentView.value = 'header'; // Show header editor after loading
       selectedGlyphName.value = null; // Ensure no glyph is selected initially
     } else {
@@ -58,6 +61,7 @@ async function openFile() {
     gtfData.value = null; // Clear data on error
     currentView.value = null;
     selectedGlyphName.value = null;
+    currentFilePath.value = null; // Clear path on error
     alert(`Failed to load file: ${error}`); // Simple error feedback
   }
 }
@@ -88,7 +92,7 @@ async function saveFileAs() {
         document: gtfData.value // Pass the current data
       });
       console.log("File saved successfully.");
-      // Optionally show a success message (e.g., using a snackbar)
+      currentFilePath.value = savePath; // Store the path after successful save
       alert("File saved successfully!");
     } else {
       console.log("File saving cancelled.");
@@ -101,6 +105,44 @@ async function saveFileAs() {
   }
 }
 
+// Function to save the file to its current path
+async function saveFile() {
+  if (!gtfData.value || !currentFilePath.value) {
+    console.warn("Save attempted but no data or file path is available.");
+    // Optionally call saveFileAs if no path exists?
+    // if (!currentFilePath.value && gtfData.value) saveFileAs();
+    return;
+  }
+  currentError.value = null;
+  console.log(`Saving to current path: ${currentFilePath.value}`);
+  try {
+      await invoke('save_gtf_file', { 
+        path: currentFilePath.value, // Use the stored path
+        document: gtfData.value // Pass the current data
+      });
+      console.log("File saved successfully (overwrite).");
+      // Add subtle feedback, e.g., a temporary message or status bar update
+      // For now, maybe just a brief console log
+      // alert("File saved."); // Alert might be too intrusive for quick save
+  } catch (error) {
+     console.error("Error saving file (overwrite):", error);
+     currentError.value = `Error saving file: ${error}`;
+     alert(`Failed to save file: ${error}`); // Show error on failure
+  }
+}
+
+// Function to start a new, empty document
+function newFile() {
+   // TODO: Add check for unsaved changes before proceeding
+   // Example: if (hasUnsavedChanges() && !confirm("Discard unsaved changes?")) return;
+   console.log("Creating new file...");
+   gtfData.value = { header: {}, glyphs: [] }; // Reset data to empty structure
+   currentFilePath.value = null; // Clear file path
+   selectedGlyphName.value = null;
+   currentView.value = 'header'; // Start at header
+   currentError.value = null;
+}
+
 // Function to handle selecting a glyph from the list
 function selectGlyph(glyphName) {
   selectedGlyphName.value = glyphName;
@@ -111,6 +153,62 @@ function selectGlyph(glyphName) {
 function selectHeader() {
   selectedGlyphName.value = null; // Deselect any glyph
   currentView.value = 'header'; // Switch view to header editor
+}
+
+// Function to add a new glyph
+function addGlyph() {
+  if (!gtfData.value) return; // Need existing data structure
+
+  // Find a unique default name
+  let newName = 'NewGlyph';
+  let counter = 1;
+  const existingNames = new Set(gtfData.value.glyphs.map(g => g.name));
+  while (existingNames.has(newName + counter)) {
+      counter++;
+  }
+  newName = newName + counter;
+
+  // Create a default glyph structure
+  const newGlyph = {
+      name: newName,
+      unicode: null,
+      char_repr: null,
+      size: { width: 5, height: 7 }, // Default size, can be adjusted
+      palette: null, // Default to monochrome
+      bitmap: Array(7).fill('.'.repeat(5)), // Create default bitmap based on size
+      validation_warnings: null
+  };
+
+  gtfData.value.glyphs.push(newGlyph);
+  console.log(`Added glyph: ${newName}`);
+
+  // Automatically select the new glyph
+  selectGlyph(newName);
+}
+
+// Function to remove the selected glyph
+function removeGlyph() {
+  if (!gtfData.value || !selectedGlyphName.value) return; // Need data and selection
+
+  // Optional: Add confirmation dialog here later
+  // if (!confirm(`Are you sure you want to delete glyph '${selectedGlyphName.value}'?`)) {
+  //    return;
+  // }
+
+  const indexToRemove = gtfData.value.glyphs.findIndex(g => g.name === selectedGlyphName.value);
+
+  if (indexToRemove !== -1) {
+      const removedName = gtfData.value.glyphs[indexToRemove].name;
+      gtfData.value.glyphs.splice(indexToRemove, 1);
+      console.log(`Removed glyph: ${removedName}`);
+
+      // Deselect and switch view back to header
+      selectHeader(); 
+  } else {
+      console.warn(`Could not find glyph '${selectedGlyphName.value}' to remove.`);
+      // Clear selection just in case
+      selectHeader(); 
+  }
 }
 
 // Function to update header data based on emitted event
@@ -203,14 +301,26 @@ function updateGlyphData({ field, value }) {
   <v-app id="inspire">
     <v-app-bar>
       <v-app-bar-title>
-        GTF Editor {{ gtfData?.header?.font_name ? `- ${gtfData.header.font_name}` : '' }}
+        GTF Editor 
+        {{ gtfData?.header?.font_name ? `- ${gtfData.header.font_name}` : '' }}
+        {{ currentFilePath ? ` (${currentFilePath.split('/').pop().split('\\').pop()})` : '(New File)' }}
       </v-app-bar-title>
 
+      <v-btn prepend-icon="mdi-file-outline" @click="newFile">
+        New File
+      </v-btn>
       <v-btn prepend-icon="mdi-folder-open-outline" @click="openFile">
         Open File
       </v-btn>
+       <v-btn 
+        prepend-icon="mdi-content-save" 
+        @click="saveFile" 
+        :disabled="!gtfData || !currentFilePath" 
+      >
+        Save
+      </v-btn>
       <v-btn 
-        prepend-icon="mdi-content-save-outline" 
+        prepend-icon="mdi-content-save-cog-outline" 
         @click="saveFileAs" 
         :disabled="!gtfData" 
       >
@@ -230,6 +340,33 @@ function updateGlyphData({ field, value }) {
          ></v-list-item>
          <v-divider></v-divider>
          <v-list-subheader>GLYPHS ({{ gtfData?.glyphs?.length ?? 0 }})</v-list-subheader>
+         
+         <!-- Add/Remove Buttons -->
+         <v-list-item v-if="gtfData">
+             <v-btn 
+               @click="addGlyph" 
+               block 
+               prepend-icon="mdi-plus-box-outline" 
+               variant="text" 
+               size="small"
+               class="mb-1"
+             >
+                 Add New
+             </v-btn>
+             <v-btn 
+               @click="removeGlyph" 
+               block 
+               prepend-icon="mdi-minus-box-outline" 
+               variant="text" 
+               size="small"
+               color="error" 
+               :disabled="!selectedGlyphName" 
+             >
+                 Remove Selected
+             </v-btn>
+         </v-list-item>
+         <v-divider v-if="gtfData"></v-divider>
+
          <!-- Iterate over actual glyphs when loaded -->
          <template v-if="gtfData && gtfData.glyphs">
            <v-list-item 
