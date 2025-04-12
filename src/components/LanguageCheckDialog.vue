@@ -1,3 +1,28 @@
+<!--
+  Language Character Set Check Dialog
+
+  Purpose:
+  Provides a UI to check if glyphs for required characters 
+  (common + language-specific) exist in the current font data.
+  Allows adding missing glyphs quickly.
+
+  Features:
+  - Dropdown to select a target language.
+  - Displays a grid of required characters (common first, then specific).
+  - Visual distinction:
+    - Missing characters: Light red background, '+' button to add.
+    - Existing characters: Light green background, greyed text, checkmark icon.
+  - Tooltips show glyph name (if existing) or action prompt.
+
+  Props:
+  - modelValue (Boolean): Controls dialog visibility (for v-model).
+  - glyphs (Array): The list of glyph objects from the main font data.
+  - characterSets (Object): Maps language names to strings of specific characters.
+
+  Emits:
+  - update:modelValue (Boolean): For v-model updates.
+  - add-glyph-for-char (String): Emitted with the character when the '+' button is clicked.
+-->
 <template>
   <v-dialog v-model="dialogVisible" persistent max-width="800px">
     <v-card>
@@ -181,7 +206,8 @@ watch(dialogVisible, (newValue) => {
     border-radius: 4px;
     min-width: 45px;
     justify-content: center;
-    transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    background-color: #ffebee;
 }
 .char-display {
     margin-right: 5px;
