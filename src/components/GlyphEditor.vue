@@ -105,42 +105,50 @@
       <v-col cols="12">
         <h3>Bitmap</h3>
         
+        <!-- RE-ADD Outer wrapper div for border and centering -->
         <div 
-          v-if="glyphData.size && glyphData.bitmap" 
-          class="bitmap-grid"
-          :style="gridStyle"
-          @mouseup="stopDrawing" 
-          @mouseleave="stopDrawing" 
+          v-if="glyphData.size && glyphData.bitmap"
+          style="background-color: #424242; padding: 5px; border-radius: 4px; display: flex; justify-content: center;"
           @contextmenu.prevent
         >
-          <template v-for="(row, y) in glyphData.bitmap" :key="y">
-            <v-tooltip 
-              v-for="(char, x) in row.split('')" 
-              :key="`${x}-${y}`"
-              :text="isCharValid(char) ? '' : `Char \'${char}\' not in palette!`"
-              :disabled="isCharValid(char)"
-              location="top"
-            >
-              <template v-slot:activator="{ props: tooltipProps }">
-                <v-btn 
-                  v-bind="tooltipProps" 
-                  class="bitmap-cell"
-                  :style="getCellStyle(char)"
-                  icon 
-                  variant="flat" 
-                  size="x-small" 
-                  :ripple="false"
-                  @mousedown.prevent="startDrawing(x, y, $event)" 
-                  @mouseenter="drawOnEnter(x, y)" 
-                  
-                >
-                  <!-- Display character ONLY if it's invalid -->
-                  <span v-if="!isCharValid(char)" class="invalid-char-indicator">{{ char }}</span>
-                </v-btn>
-              </template>
-            </v-tooltip>
-          </template>
-        </div>
+          <!-- Existing grid div -->
+          <div 
+            class="bitmap-grid"
+            :style="gridStyle"
+            @mouseup="stopDrawing" 
+            @mouseleave="stopDrawing" 
+            @contextmenu.prevent
+          >
+            <template v-for="(row, y) in glyphData.bitmap" :key="y">
+              <v-tooltip 
+                v-for="(char, x) in row.split('')" 
+                :key="`${x}-${y}`"
+                :text="isCharValid(char) ? '' : `Char \'${char}\' not in palette!`"
+                :disabled="isCharValid(char)"
+                location="top"
+              >
+                <template v-slot:activator="{ props: tooltipProps }">
+                  <v-btn 
+                    v-bind="tooltipProps" 
+                    class="bitmap-cell"
+                    :style="getCellStyle(char)"
+                    icon 
+                    variant="flat" 
+                    size="x-small" 
+                    :ripple="false"
+                    @mousedown.prevent="startDrawing(x, y, $event)" 
+                    @mouseenter="drawOnEnter(x, y)" 
+                    
+                  >
+                    <!-- Display character ONLY if it's invalid -->
+                    <span v-if="!isCharValid(char)" class="invalid-char-indicator">{{ char }}</span>
+                  </v-btn>
+                </template>
+              </v-tooltip>
+            </template>
+          </div> <!-- End of existing grid div -->
+        </div> <!-- End of RE-ADDED outer wrapper div -->
+
         <p v-else>(No bitmap data or size defined)</p>
 
       </v-col>
@@ -492,7 +500,6 @@ pre {
 }
 
 .bitmap-grid {
-  margin-top: 10px;
   line-height: 0; /* Prevent extra space around buttons */
 }
 
