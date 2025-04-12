@@ -200,24 +200,25 @@ const emit = defineEmits(['update:glyphField']);
 
 // Local state for the size input field
 const sizeInput = ref('');
-const sizeError = ref(''); // Error message for size input
-
-// --- ADDED: Declare the missing flag --- 
+const sizeError = ref('');
 const isUpdatingFromTextArea = ref(false);
 
-// Watch for changes in the incoming glyph data to update the local input
-watch(() => props.glyphData, (newGlyphData) => {
-  if (newGlyphData && newGlyphData.size) {
-    sizeInput.value = `${newGlyphData.size.width}x${newGlyphData.size.height}`;
-  } else if (newGlyphData) {
-    sizeInput.value = ''; // Clear if size is null/undefined in new data
+// --- Watcher for the Size Prop to update the local text input --- 
+watch(() => props.glyphData?.size, (newSize) => {
+  console.log("Watcher: props.glyphData.size changed ->", newSize);
+  if (newSize && newSize.width !== undefined && newSize.height !== undefined) {
+    // Update the local text input field when the prop changes
+    sizeInput.value = `${newSize.width}x${newSize.height}`;
+    sizeError.value = ''; // Clear error if size becomes valid
+    console.log(`Watcher: Updated sizeInput to ${sizeInput.value}`);
   } else {
-    sizeInput.value = ''; // Clear if glyphData itself is null
+    // Clear the input if the size prop becomes null or invalid
+    sizeInput.value = '';
+    console.log("Watcher: Cleared sizeInput because prop size is invalid/null");
   }
-  sizeError.value = ''; // Clear error on data change
-}, { immediate: true }); // Run immediately on component mount
+}, { deep: true, immediate: true }); // immediate: true to set initial value, deep: true for object changes
 
-// Validate and emit size changes
+// Validate and emit size changes *from the text input*
 function handleSizeChange() {
   sizeError.value = ''; // Clear previous error
   const value = sizeInput.value.trim();
