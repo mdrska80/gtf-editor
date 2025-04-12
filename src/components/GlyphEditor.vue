@@ -137,6 +137,9 @@
           v-if="glyphData.size && glyphData.bitmap" 
           class="bitmap-grid"
           :style="gridStyle"
+          @mouseup="stopDrawing" 
+          @mouseleave="stopDrawing" 
+          @contextmenu.prevent
         >
           <template v-for="(row, y) in glyphData.bitmap" :key="y">
             <v-tooltip 
@@ -155,7 +158,9 @@
                   variant="flat" 
                   size="x-small" 
                   :ripple="false"
-                  @click="handleCellClick(x, y)" 
+                  @mousedown.prevent="startDrawing(x, y, $event)" 
+                  @mouseenter="drawOnEnter(x, y)" 
+                  
                 >
                   <!-- Display character ONLY if it's invalid -->
                   <span v-if="!isCharValid(char)" class="invalid-char-indicator">{{ char }}</span>
@@ -304,8 +309,11 @@ function removePaletteEntry(charToRemove) {
 
 // --- Bitmap Logic ---
 
+const isDrawing = ref(false); // Track if mouse button is down
 // State for currently selected drawing character
 const selectedDrawChar = ref('.'); // Default for mono off
+const selectedEraseChar = ref('.'); // Character used for erasing (right-click), default '.'
+const currentCharToDraw = ref('.'); // Character being used in the current draw stroke
 
 // Watch for mode changes to reset selected draw char
 watch(isColorMode, (newIsColor, oldIsColor) => {
@@ -367,13 +375,79 @@ function getCellStyle(char) {
   return style;
 }
 
-// Placeholder for handling cell clicks (editing)
-function handleCellClick(x, y) {
-  console.log(`Clicked cell: x=${x}, y=${y}`);
-  // TODO: Implement bitmap update logic here
-  // 1. Get current drawing char/color
-  // 2. Update character at [y][x] in a mutable copy of the bitmap array
-  // 3. Emit the updated bitmap array: emit('update:glyphField', { field: 'bitmap', value: newBitmapArray });
+// Renamed from handleCellClick - updates the cell at given coordinates with a specific character
+function updateCell(x, y, drawChar) {
+  // Use selectedDrawChar if drawChar is not provided (for potential future single-click use)
+  const charToUse = drawChar !== undefined ? drawChar : selectedDrawChar.value;
+
+  console.log(`Updating cell: x=${x}, y=${y}, drawing with: ${charToUse}`);
+  
+  // Ensure data validity
+  if (!props.glyphData || !props.glyphData.bitmap || y >= props.glyphData.bitmap.length) {
+      console.error("Cannot update bitmap: Invalid data or y index.");
+      return;
+  }
+  
+  // Allow drawing empty space if '' is selected? For now, treat as invalid selection
+  if (!charToUse && charToUse !== '') { 
+      console.warn("Invalid drawing character provided.");
+      return;
+  }
+
+  // Create a mutable copy of the bitmap array
+  const newBitmap = [...props.glyphData.bitmap];
+  
+  // Get the target row as an array of characters
+  let rowChars = newBitmap[y].split('');
+
+  // Check x bounds and update character
+  if (x < rowChars.length) {
+      // Only update if the character is actually changing
+      if (rowChars[x] !== charToUse) {
+          rowChars[x] = charToUse;
+          
+          // Join the characters back into a string
+          newBitmap[y] = rowChars.join('');
+          
+          // Emit the updated bitmap array
+          console.log("Emitting updated bitmap:", newBitmap);
+          emit('update:glyphField', { field: 'bitmap', value: newBitmap });
+      }
+  } else {
+      console.error(`Cannot update bitmap: Invalid x index ${x}.`);
+  }
+}
+
+// Start drawing when mouse button is pressed down on a cell
+function startDrawing(x, y, event) {
+  isDrawing.value = true;
+  
+  // Determine draw character based on mouse button
+  // event.button === 0 for left, 2 for right
+  if (event.button === 0) {
+    currentCharToDraw.value = selectedDrawChar.value;
+  } else if (event.button === 2) {
+    currentCharToDraw.value = selectedEraseChar.value; // Use erase character for right-click
+  }
+  // Potentially handle middle click (event.button === 1) if needed
+  
+  console.log(`Start drawing with button ${event.button}, char: ${currentCharToDraw.value}`);
+  updateCell(x, y, currentCharToDraw.value); // Draw on the first cell immediately
+}
+
+// Continue drawing if mouse enters a cell while button is pressed
+function drawOnEnter(x, y) {
+  if (isDrawing.value) {
+    updateCell(x, y, currentCharToDraw.value); // Use the character determined at startDrawing
+  }
+}
+
+// Stop drawing when mouse button is released or leaves the grid
+function stopDrawing() {
+  if (isDrawing.value) {
+    console.log("Stop drawing");
+    isDrawing.value = false;
+  }
 }
 
 </script>

@@ -167,11 +167,17 @@ function updateGlyphData({ field, value }) {
   } else if (field === 'palette') {
     // Palette value is either the palette object or null
     processedValue = value;
+  } else if (field === 'bitmap') {
+     // Value should be the new array of bitmap strings
+     if (Array.isArray(value)) {
+       processedValue = value;
+     } else {
+       console.error("Invalid value received for bitmap update, expected array.");
+       return; // Don't update if value is not an array
+     }
   }
-  // Add handling for other fields like size later
   
   // Update the data
-  // Make sure we are not trying to set an unknown field
   if (field in gtfData.value.glyphs[glyphIndex]) {
       gtfData.value.glyphs[glyphIndex][field] = processedValue;
       console.log(`Updated glyph field '${field}':`, gtfData.value.glyphs[glyphIndex]);
