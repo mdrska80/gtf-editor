@@ -181,9 +181,17 @@ pub fn parse_gtf_content(content: &str) -> Result<GtfDocument, String> {
                 } else if glyph.size.is_some() && !trimmed_line.contains(' ') {
                      let expected_width = glyph.size.as_ref().unwrap().width as usize;
                      if trimmed_line.chars().count() != expected_width {
-                          return Err(format!("Line {}: Bitmap line length ({}) does not match expected width ({}) for glyph '{}'.",
-                                              current_line_num, trimmed_line.chars().count(), expected_width, glyph.name));
+                          let warning_msg = format!(
+                            "Line {}: Bitmap line length ({}) does not match expected width ({}) for glyph '{}'. Loading as-is.",
+                            current_line_num, trimmed_line.chars().count(), expected_width, glyph.name
+                          );
+                          println!("Parser Warning: {}", warning_msg);
+                          if glyph.validation_warnings.is_none() {
+                              glyph.validation_warnings = Some(Vec::new());
+                          }
+                          glyph.validation_warnings.as_mut().unwrap().push(warning_msg);
                      }
+                     
                      validate_bitmap_line(trimmed_line, glyph, current_line_num);
                      glyph.bitmap.push(trimmed_line.to_string());
                      bitmap_lines_collected = 1;
@@ -213,9 +221,17 @@ pub fn parse_gtf_content(content: &str) -> Result<GtfDocument, String> {
                  } else if glyph.size.is_some() && !trimmed_line.contains(' ') {
                      let expected_width = glyph.size.as_ref().unwrap().width as usize;
                      if trimmed_line.chars().count() != expected_width {
-                         return Err(format!("Line {}: Bitmap line length ({}) does not match expected width ({}) for glyph '{}'.",
-                                             current_line_num, trimmed_line.chars().count(), expected_width, glyph.name));
+                         let warning_msg = format!(
+                            "Line {}: Bitmap line length ({}) does not match expected width ({}) for glyph '{}'. Loading as-is.",
+                            current_line_num, trimmed_line.chars().count(), expected_width, glyph.name
+                          );
+                          println!("Parser Warning: {}", warning_msg);
+                          if glyph.validation_warnings.is_none() {
+                              glyph.validation_warnings = Some(Vec::new());
+                          }
+                          glyph.validation_warnings.as_mut().unwrap().push(warning_msg);
                      }
+                     
                      validate_bitmap_line(trimmed_line, glyph, current_line_num);
                      glyph.bitmap.push(trimmed_line.to_string());
                      bitmap_lines_collected = 1;
@@ -235,24 +251,65 @@ pub fn parse_gtf_content(content: &str) -> Result<GtfDocument, String> {
                     validate_end_glyph(trimmed_line, current_glyph_name.as_deref())
                          .map_err(|e| format!("Line {}: {}", current_line_num, e))?;
 
-                    if bitmap_lines_collected != expected_height {
-                         return Err(format!("Line {}: Expected {} bitmap lines for glyph '{}' based on SIZE, but found {}.",
-                                             current_line_num, expected_height, glyph.name, bitmap_lines_collected));
+                    if bitmap_lines_collected < expected_height {
+                        // Add warning for too few lines
+                        let warning_msg = format!(
+                            "Line {}: Expected {} bitmap lines for glyph '{}' based on SIZE, but only found {}. Glyph might be incomplete.",
+                            current_line_num, expected_height, glyph.name, bitmap_lines_collected
+                        );
+                        println!("Parser Warning: {}", warning_msg); // Log on backend
+
+                        if glyph.validation_warnings.is_none() {
+                            glyph.validation_warnings = Some(Vec::new());
+                        }
+                        // This unwrap is safe because we just checked/initialized
+                        glyph.validation_warnings.as_mut().unwrap().push(warning_msg);
+                        // Continue to add the glyph despite the warning
                     }
+                    // If bitmap_lines_collected == expected_height, it's fine.
+                    // If bitmap_lines_collected > expected_height, we already logged warnings and ignored extra lines,
+                    // so we still add the glyph here with the lines we *did* collect (up to expected_height).
 
                     document.glyphs.push(glyph.clone());
                     current_glyph = None;
                     current_glyph_name = None;
                     current_state = ParseState::Searching;
                 } else {
+                    // --- MODIFIED Check: Warn instead of error for too many lines --- 
                     if bitmap_lines_collected >= expected_height {
-                         return Err(format!("Line {}: Found more bitmap lines than expected ({}) for glyph '{}'.",
-                                             current_line_num, expected_height, glyph.name));
+                         // Don't error, add a warning instead
+                         let warning_msg = format!(
+                            "Line {}: Found more bitmap lines than expected ({}) for glyph '{}'. Extra line ignored.",
+                            current_line_num, expected_height, glyph.name
+                         );
+                         println!("Parser Warning: {}", warning_msg); // Log on backend
+
+                         if glyph.validation_warnings.is_none() {
+                             glyph.validation_warnings = Some(Vec::new());
+                         }
+                         // This unwrap is safe because we just checked/initialized
+                         glyph.validation_warnings.as_mut().unwrap().push(warning_msg);
+
+                         // Skip processing this extra line for the bitmap itself
+                         // Let the loop continue to find END GLYPH or next line
+                         continue; // Skips the rest of this 'else' block iteration
+                         // --- END MODIFIED Check --- 
                     }
+                    
+                    // This code now only runs if bitmap_lines_collected < expected_height
+                    let expected_width = size.width as usize;
                     if trimmed_line.chars().count() != expected_width {
-                         return Err(format!("Line {}: Bitmap line length ({}) does not match expected width ({}) for glyph '{}'.",
-                                             current_line_num, trimmed_line.chars().count(), expected_width, glyph.name));
+                         let warning_msg = format!(
+                            "Line {}: Bitmap line length ({}) does not match expected width ({}) for glyph '{}'. Loading as-is.",
+                            current_line_num, trimmed_line.chars().count(), expected_width, glyph.name
+                         );
+                         println!("Parser Warning: {}", warning_msg);
+                          if glyph.validation_warnings.is_none() {
+                              glyph.validation_warnings = Some(Vec::new());
+                          }
+                          glyph.validation_warnings.as_mut().unwrap().push(warning_msg);
                     }
+                    
                     validate_bitmap_line(trimmed_line, glyph, current_line_num);
                     glyph.bitmap.push(trimmed_line.to_string());
                     bitmap_lines_collected += 1;

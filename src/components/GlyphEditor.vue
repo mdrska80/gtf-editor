@@ -174,7 +174,7 @@
 </template>
 
 <script setup>
-import { defineProps, ref, watch, defineEmits, computed } from 'vue';
+import { defineProps, ref, watch, defineEmits, computed, nextTick } from 'vue';
 import PaletteEditor from './PaletteEditor.vue'; // Import the new component
 import BitmapTextView from './BitmapTextView.vue'; // <-- IMPORT the new component
 import GlyphTextView from './GlyphTextView.vue';   // <-- IMPORT the newest component
@@ -201,6 +201,9 @@ const emit = defineEmits(['update:glyphField']);
 // Local state for the size input field
 const sizeInput = ref('');
 const sizeError = ref(''); // Error message for size input
+
+// --- ADDED: Declare the missing flag --- 
+const isUpdatingFromTextArea = ref(false);
 
 // Watch for changes in the incoming glyph data to update the local input
 watch(() => props.glyphData, (newGlyphData) => {
@@ -483,34 +486,44 @@ function stopDrawing() {
   }
 }
 
-// --- NEW: Handler for updates from BitmapTextView ---
-function handleBitmapTextUpdate(newBitmapArrayFromSplit) { // Renamed param for clarity
-  // Calculate dimensions based on the raw text split
+// --- Handler for updates from BitmapTextView (Reverting to Simplified Logic) ---
+function handleBitmapTextUpdate(newBitmapArrayFromSplit) {
+  // *** SET FLAG ***
+  isUpdatingFromTextArea.value = true;
+  console.log("--- Text Area Update Start (Simplified Logic) ---");
+  // console.log("Raw input array:", JSON.stringify(newBitmapArrayFromSplit)); // Keep console less noisy unless debugging
+
+  // Calculate dimensions: Width from first line, Height from total lines
   const newHeight = newBitmapArrayFromSplit.length;
-  const newWidth = newBitmapArrayFromSplit.reduce((maxWidth, line) => Math.max(maxWidth, line.length), 0);
+  const newWidth = String(newBitmapArrayFromSplit[0] || '').length; // Width based ONLY on the first line
+  console.log(`Simplified Logic Calculated dimensions: ${newWidth}x${newHeight}`);
 
   // Get current dimensions for comparison later
   const currentSize = props.glyphData?.size;
   const currentWidth = currentSize?.width ?? 0;
   const currentHeight = currentSize?.height ?? 0;
+  // console.log(`Current dimensions: ${currentWidth}x${currentHeight}`);
 
-  // --- Normalize the bitmap array --- 
-  const defaultChar = selectedDrawChar.value || '.'; // Use selected char or fallback
-  const normalizedBitmapArray = newBitmapArrayFromSplit.map(line => {
-    // Pad existing lines (including empty ones) to the new width with the default character
-    return String(line || '').padEnd(newWidth, defaultChar);
-  });
+  // --- REMOVED Normalization Step --- 
 
-  // Emit the *normalized* bitmap array
-  // This ensures the array reflects the calculated width and handles empty lines
-  emit('update:glyphField', { field: 'bitmap', value: normalizedBitmapArray });
+  // Emit the raw bitmap array directly from text area split
+  emit('update:glyphField', { field: 'bitmap', value: newBitmapArrayFromSplit }); 
+  // console.log("Emitted raw bitmap array:", JSON.stringify(newBitmapArrayFromSplit));
 
-  // Check if dimensions actually changed and emit size update if needed
+  // Check if dimensions actually changed (based on first line width & total height)
+  // and emit size update if needed
   if (newWidth !== currentWidth || newHeight !== currentHeight) {
-    console.log(`Bitmap text edit triggered size change: ${currentWidth}x${currentHeight} -> ${newWidth}x${newHeight}`);
-    // If dimensions changed, emit an update for the size field as well
+    console.log(`Simplified Logic: Emitting size update ${currentWidth}x${currentHeight} -> ${newWidth}x${newHeight}`);
     emit('update:glyphField', { field: 'size', value: { width: newWidth, height: newHeight } });
+  } else {
+    // console.log("Simplified Logic: Size did not change.");
   }
+
+  // *** RESET FLAG after Vue processes updates ***
+  nextTick(() => {
+    isUpdatingFromTextArea.value = false;
+  });
+  console.log("--- Text Area Update End (Simplified Logic) ---");
 }
 
 </script>
