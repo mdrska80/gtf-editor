@@ -58,6 +58,7 @@
       <v-col cols="12" md="6">
         <h3>Palette</h3>
         
+        <!-- Always show color palette UI -->
         <h4>Select Draw Character:</h4>
         <v-chip-group mandatory v-model="selectedDrawChar" column>
            <v-chip 
@@ -77,57 +78,25 @@
 
         <v-divider class="my-4"></v-divider>
         <h4>Palette Entries:</h4>
-        <v-list density="compact" lines="one">
-          <v-list-item 
-            v-for="entry in props.palette" 
-            :key="entry.char"
-            class="palette-item"
+        
+         <!-- Button to apply default palette -->
+         <v-btn 
+           @click="applyDefaultPalette" 
+           :disabled="!hasDefaultPalette" 
+           size="small"
+           variant="outlined"
+           class="mb-2"
+           prepend-icon="mdi-format-paint"
+           title="Replace current entries with header default palette"
           >
-            <template v-slot:prepend>
-              <div class="color-swatch" :style="{ backgroundColor: entry.color }"></div>
-            </template>
-            <v-list-item-title><code class="char-code">{{ entry.char }}</code> : {{ entry.color }}</v-list-item-title>
-            <template v-slot:append>
-              <v-btn 
-                icon="mdi-delete" 
-                variant="text" 
-                size="small" 
-                @click="removePaletteEntry(entry.char)"
-                title="Remove Color"
-              ></v-btn>
-            </template>
-          </v-list-item>
-           <v-list-item v-if="!props.palette || props.palette.length === 0">
-              <v-list-item-title>Palette is empty.</v-list-item-title>
-           </v-list-item>
-         </v-list>
+            Use Default Palette
+         </v-btn>
 
-        <v-divider class="my-4"></v-divider>
-
-        <h4>Add New Color</h4>
-        <v-row dense>
-          <v-col cols="3">
-            <v-text-field 
-              label="Char"
-              v-model="newPaletteChar"
-              maxlength="1"
-              density="compact"
-              :error-messages="newPaletteError"
-            ></v-text-field>
-          </v-col>
-          <v-col cols="6">
-             <v-text-field 
-              label="Color (#RGB or #RRGGBB)"
-              v-model="newPaletteColor"
-               density="compact"
-               :error-messages="newPaletteError"
-            ></v-text-field>
-            <!-- TODO: Optionally add v-color-picker -->
-          </v-col>
-          <v-col cols="3">
-            <v-btn @click="addPaletteEntry" color="primary" block>Add</v-btn>
-          </v-col>
-        </v-row>
+        <!-- Use the new PaletteEditor component -->
+        <PaletteEditor 
+           :entries="glyphData.palette?.entries || {}"
+           @update:palette="handleGlyphPaletteUpdate"
+        />
 
       </v-col>
     </v-row>
@@ -185,6 +154,7 @@
 
 <script setup>
 import { defineProps, ref, watch, defineEmits, computed } from 'vue';
+import PaletteEditor from './PaletteEditor.vue'; // Import the new component
 
 // Define the expected props
 const props = defineProps({
@@ -195,6 +165,10 @@ const props = defineProps({
   palette: { // Processed palette array [{ char, color }, ...]
     type: Array,
     required: true
+  },
+  headerDefaultPalette: { // Processed default palette array [{ char, color }, ...]
+    type: Array,
+    default: () => []
   }
 });
 
@@ -246,55 +220,25 @@ function handleSizeChange() {
 }
 
 // --- Palette State & Logic ---
-const newPaletteChar = ref('');
-const newPaletteColor = ref('#FFFFFF');
-const newPaletteError = ref('');
 
-// Add a new entry to the palette
-function addPaletteEntry() {
-  newPaletteError.value = ''; // Clear previous error
-  const char = newPaletteChar.value.trim();
-  const color = newPaletteColor.value.trim();
+// Check if a default palette was provided via props
+const hasDefaultPalette = computed(() => props.headerDefaultPalette && props.headerDefaultPalette.length > 0);
 
-  if (char.length !== 1) {
-    newPaletteError.value = 'Enter a single character.';
-    return;
-  }
-  if (!/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(color)) {
-     newPaletteError.value = 'Invalid color format (#RGB or #RRGGBB).';
-     return;
-  }
-  if (!props.glyphData.palette || !props.glyphData.palette.entries) {
-      newPaletteError.value = 'Cannot add to non-existent palette.'; // Should not happen if switch works
-      return;
-  }
-  if (props.glyphData.palette.entries[char]) {
-       newPaletteError.value = `Character '${char}' already exists in palette.`;
-       return;
-  }
-
-  // Create a mutable copy of the entries
-  const updatedEntries = { ...props.glyphData.palette.entries };
-  updatedEntries[char] = color;
-  
-  // Emit the entire updated palette object
-  emit('update:glyphField', { field: 'palette', value: { entries: updatedEntries } });
-
-  // Clear input fields
-  newPaletteChar.value = '';
-  // newPaletteColor.value = '#FFFFFF'; // Keep last color?
+// Function to emit the action to use the default palette
+function applyDefaultPalette() {
+    if (hasDefaultPalette.value) {
+        emit('update:glyphField', { action: 'use_default_palette' });
+    }
 }
 
-// Remove an entry from the palette
-function removePaletteEntry(charToRemove) {
-  if (!props.glyphData.palette || !props.glyphData.palette.entries) return;
-  
-  // Create a mutable copy, excluding the character to remove
-  const updatedEntries = { ...props.glyphData.palette.entries };
-  delete updatedEntries[charToRemove];
-
-  // Emit the entire updated palette object
-  emit('update:glyphField', { field: 'palette', value: { entries: updatedEntries } });
+// Function to handle palette updates from the PaletteEditor component
+function handleGlyphPaletteUpdate(newEntries) {
+    // Reconstruct the full palette object before emitting
+    const currentPalette = props.glyphData.palette || {};
+    emit('update:glyphField', { 
+      field: 'palette', 
+      value: { ...currentPalette, entries: newEntries }
+    });
 }
 
 // --- Bitmap Logic ---

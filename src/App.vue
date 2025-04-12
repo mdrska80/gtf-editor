@@ -213,20 +213,26 @@ function removeGlyph() {
 
 // Function to update header data based on emitted event
 function updateHeaderData({ field, value }) {
-  console.log(`updateHeaderData called for field: ${field} with value: ${value}`);
+  console.log(`updateHeaderData called for field: ${field} with value:`, value);
   if (gtfData.value && gtfData.value.header) {
-    // Handle empty string input: set corresponding field to null (or empty string based on backend expectation)
-    // For simplicity, we'll set to null if value is empty, otherwise keep the value.
-    // Rust side uses Option<String>, so null/None is appropriate.
-    gtfData.value.header[field] = value.trim() === '' ? null : value;
-    console.log("Updated header:", gtfData.value.header);
+      if (field === 'default_palette') {
+          // Ensure the value is a valid palette object or null/default
+          const newPalette = value && typeof value === 'object' && value.entries ? value : { entries: {} };
+          gtfData.value.header[field] = newPalette; 
+          console.log("Updated header default_palette:", gtfData.value.header.default_palette);
+      } else {
+          // Handle other header fields (FONT, VERSION, etc.)
+          // Handle empty string input: set corresponding field to null
+          gtfData.value.header[field] = (typeof value === 'string' && value.trim() === '') ? null : value;
+          console.log(`Updated header field '${field}':`, gtfData.value.header[field]);
+      }
   } else {
     console.warn("Attempted to update header data, but gtfData or header is null.");
   }
 }
 
 // Function to update glyph data based on emitted event
-function updateGlyphData({ field, value }) {
+function updateGlyphData({ field, value, action }) {
   if (!gtfData.value || !selectedGlyphName.value) {
     console.warn("Attempted to update glyph data, but gtfData or selectedGlyphName is null.");
     return;
@@ -242,7 +248,23 @@ function updateGlyphData({ field, value }) {
   // Get a reference to the current glyph data for easier access
   const currentGlyph = gtfData.value.glyphs[glyphIndex];
 
-  // Handle specific fields
+  // Handle specific actions first
+  if (action === 'use_default_palette') {
+    if (gtfData.value.header.default_palette && gtfData.value.header.default_palette.entries) {
+       console.log("Applying default palette to glyph:", currentGlyph.name);
+       // Deep copy entries to avoid reactivity issues
+       currentGlyph.palette = { 
+           entries: JSON.parse(JSON.stringify(gtfData.value.header.default_palette.entries))
+       };
+       // No need to update other fields here
+       return; 
+    } else {
+        console.warn("Attempted to apply default palette, but none exists in header.");
+        return;
+    }
+  }
+
+  // Handle field updates as before
   let processedValue = value;
   if (field === 'char_repr') {
       // Ensure only the first character is taken, or null if empty
@@ -416,7 +438,7 @@ function updateGlyphData({ field, value }) {
         :key="selectedGlyphName" 
         :glyph-data="selectedGlyphData"
         :palette="selectedGlyphData.palette?.entries ? Object.entries(selectedGlyphData.palette.entries).map(([char, color]) => ({ char, color })) : []" 
-        :monochrome="selectedGlyphData.palette === null || selectedGlyphData.palette === undefined"
+        :header-default-palette="gtfData?.header?.default_palette?.entries ? Object.entries(gtfData.header.default_palette.entries).map(([char, color]) => ({char, color})) : []"
         @update:glyph-field="updateGlyphData"
       />
 

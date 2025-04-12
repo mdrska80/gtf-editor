@@ -33,6 +33,8 @@ pub struct GtfHeader {
     pub version: Option<String>,
     pub author: Option<String>,
     pub description: Option<String>,
+    #[serde(default)] // Default if missing in JSON
+    pub default_palette: Option<Palette>, // Optional default palette for the font
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
@@ -47,6 +49,7 @@ pub struct GtfDocument {
 enum ParseState {
     Searching,
     InHeader,
+    InDefaultPalette,
     InGlyphDefinition,
     InPalette,
     InBitmap,
@@ -89,6 +92,10 @@ pub fn parse_gtf_content(content: &str) -> Result<GtfDocument, String> {
             ParseState::Searching => {
                 if trimmed_line == "HEADER" {
                     current_state = ParseState::InHeader;
+                    // Ensure header struct exists (default should handle this, but safety)
+                    if document.header.default_palette.is_none() {
+                        document.header.default_palette = Some(Palette::default());
+                    }
                 } else if trimmed_line.starts_with("GLYPH ") {
                     if current_glyph.is_some() {
                         return Err(format!("Line {}: Found new GLYPH start before previous one ended.", current_line_num));
@@ -117,12 +124,34 @@ pub fn parse_gtf_content(content: &str) -> Result<GtfDocument, String> {
             }
 
             ParseState::InHeader => {
-                if trimmed_line == "END HEADER" {
+                if trimmed_line == "DEFAULT_PALETTE" {
+                    // Initialize default palette if somehow still None
+                    if document.header.default_palette.is_none() {
+                         document.header.default_palette = Some(Palette::default());
+                    }
+                    current_state = ParseState::InDefaultPalette;
+                } else if trimmed_line == "END HEADER" {
                     current_state = ParseState::Searching;
                 } else {
+                    // Assume regular header metadata
                     parse_header_line(trimmed_line, &mut document.header)
                         .map_err(|e| format!("Line {}: {}", current_line_num, e))?;
                 }
+            }
+
+            ParseState::InDefaultPalette => {
+                 // Get mutable ref to default palette (should exist due to checks above)
+                 let def_palette = document.header.default_palette.as_mut()
+                    .ok_or_else(|| format!("Line {}: Internal error: InDefaultPalette state without default_palette initialized.", current_line_num))?;
+
+                 if trimmed_line == "END HEADER" {
+                     // End of header section, also ends default palette
+                     current_state = ParseState::Searching;
+                 } else {
+                     // Assume it's a palette entry
+                     parse_palette_line(trimmed_line, def_palette)
+                         .map_err(|e| format!("Line {}: Error parsing default palette entry: {}", current_line_num, e))?;
+                 }
             }
 
             ParseState::InGlyphDefinition => {
@@ -250,16 +279,20 @@ fn parse_header_line(line: &str, header: &mut GtfHeader) -> Result<(), String> {
         return Err(format!("Invalid header line format: '{}'. Expected 'KEY value'.", line));
     }
     let key = parts[0];
-    let value = parts[1].trim().to_string();
+    let value = parts[1].trim();
 
-    match key {
-        "FONT" => header.font_name = Some(value),
-        "VERSION" => header.version = Some(value),
-        "AUTHOR" => header.author = Some(value),
-        "DESCRIPTION" => header.description = Some(value),
-        _ => return Err(format!("Unknown header key: '{}'", key)),
-    }
-    Ok(())
+     match key {
+         "FONT" => header.font_name = Some(value.to_string()),
+         "VERSION" => header.version = Some(value.to_string()),
+         "AUTHOR" => header.author = Some(value.to_string()),
+         "DESCRIPTION" => header.description = Some(value.to_string()),
+         // Ignore DEFAULT_PALETTE keyword here, handled by state machine
+         "DEFAULT_PALETTE" => { 
+              return Err("DEFAULT_PALETTE keyword should not have a value on the same line.".to_string());
+         }
+         _ => return Err(format!("Unknown header key: '{}'", key)),
+     }
+     Ok(())
 }
 
 fn parse_glyph_meta_line(line: &str, glyph: &mut Glyph) -> Result<(), String> {
@@ -385,6 +418,19 @@ pub fn serialize_gtf_document(document: &GtfDocument) -> Result<String, String> 
         let single_line_description = description.replace('\n', " ");
         writeln!(output, "DESCRIPTION {}", single_line_description).map_err(|e| e.to_string())?;
     }
+    
+    // Serialize Default Palette if present and not empty
+    if let Some(def_palette) = &document.header.default_palette {
+        if !def_palette.entries.is_empty() {
+             writeln!(output, "DEFAULT_PALETTE").map_err(|e| e.to_string())?;
+             let mut sorted_entries: Vec<_> = def_palette.entries.iter().collect();
+             sorted_entries.sort_by_key(|(k, _)| *k);
+             for (char, color) in sorted_entries {
+                 writeln!(output, "{} {}", char, color).map_err(|e| e.to_string())?;
+             }
+        }
+    }
+
     writeln!(output, "END HEADER").map_err(|e| e.to_string())?;
     writeln!(output).map_err(|e| e.to_string())?; // Blank line after header
 
