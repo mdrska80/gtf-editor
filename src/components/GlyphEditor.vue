@@ -108,7 +108,7 @@
         <!-- RE-ADD Outer wrapper div for border and centering -->
         <div 
           v-if="glyphData.size && glyphData.bitmap"
-          style="background-color: #424242; padding: 5px; border-radius: 4px; display: flex; justify-content: center;"
+          style="background-color: #000000; padding: 5px; border-radius: 4px; display: flex; justify-content: center;"
           @contextmenu.prevent
         >
           <!-- Existing grid div -->
@@ -149,6 +149,18 @@
           </div> <!-- End of existing grid div -->
         </div> <!-- End of RE-ADDED outer wrapper div -->
 
+        <!-- NEW: Add the BitmapTextView component -->
+        <BitmapTextView 
+          v-if="glyphData && glyphData.bitmap"
+          :bitmap="glyphData.bitmap" 
+        />
+
+        <!-- NEW: Add the GlyphTextView component -->
+        <GlyphTextView 
+          v-if="glyphData"
+          :glyph-data="glyphData"
+        />
+
         <p v-else>(No bitmap data or size defined)</p>
 
       </v-col>
@@ -163,6 +175,8 @@
 <script setup>
 import { defineProps, ref, watch, defineEmits, computed } from 'vue';
 import PaletteEditor from './PaletteEditor.vue'; // Import the new component
+import BitmapTextView from './BitmapTextView.vue'; // <-- IMPORT the new component
+import GlyphTextView from './GlyphTextView.vue';   // <-- IMPORT the newest component
 
 // Define the expected props
 const props = defineProps({
