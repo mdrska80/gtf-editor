@@ -153,6 +153,7 @@
         <BitmapTextView 
           v-if="glyphData && glyphData.bitmap"
           :bitmap="glyphData.bitmap" 
+          @update:bitmap="handleBitmapTextUpdate"
         />
 
         <!-- NEW: Add the GlyphTextView component -->
@@ -479,6 +480,36 @@ function stopDrawing() {
   if (isDrawing.value) {
     console.log("Stop drawing");
     isDrawing.value = false;
+  }
+}
+
+// --- NEW: Handler for updates from BitmapTextView ---
+function handleBitmapTextUpdate(newBitmapArrayFromSplit) { // Renamed param for clarity
+  // Calculate dimensions based on the raw text split
+  const newHeight = newBitmapArrayFromSplit.length;
+  const newWidth = newBitmapArrayFromSplit.reduce((maxWidth, line) => Math.max(maxWidth, line.length), 0);
+
+  // Get current dimensions for comparison later
+  const currentSize = props.glyphData?.size;
+  const currentWidth = currentSize?.width ?? 0;
+  const currentHeight = currentSize?.height ?? 0;
+
+  // --- Normalize the bitmap array --- 
+  const defaultChar = selectedDrawChar.value || '.'; // Use selected char or fallback
+  const normalizedBitmapArray = newBitmapArrayFromSplit.map(line => {
+    // Pad existing lines (including empty ones) to the new width with the default character
+    return String(line || '').padEnd(newWidth, defaultChar);
+  });
+
+  // Emit the *normalized* bitmap array
+  // This ensures the array reflects the calculated width and handles empty lines
+  emit('update:glyphField', { field: 'bitmap', value: normalizedBitmapArray });
+
+  // Check if dimensions actually changed and emit size update if needed
+  if (newWidth !== currentWidth || newHeight !== currentHeight) {
+    console.log(`Bitmap text edit triggered size change: ${currentWidth}x${currentHeight} -> ${newWidth}x${newHeight}`);
+    // If dimensions changed, emit an update for the size field as well
+    emit('update:glyphField', { field: 'size', value: { width: newWidth, height: newHeight } });
   }
 }
 
