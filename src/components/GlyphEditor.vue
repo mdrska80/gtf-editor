@@ -58,91 +58,76 @@
       <v-col cols="12" md="6">
         <h3>Palette</h3>
         
-        <v-switch
-          :model-value="isColorMode"
-          @update:model-value="toggleColorMode"
-          :label="isColorMode ? 'Color Mode' : 'Monochrome Mode'"
-          color="primary"
-          inset
-        ></v-switch>
+        <h4>Select Draw Character:</h4>
+        <v-chip-group mandatory v-model="selectedDrawChar" column>
+           <v-chip 
+              v-for="entry in props.palette" 
+              :key="entry.char"
+              :value="entry.char"
+              variant="outlined"
+              label
+           >
+               <div class="color-swatch-small" :style="{ backgroundColor: entry.color }"></div>
+               <code class="char-code-small">{{ entry.char }}</code>
+           </v-chip>
+           <v-chip v-if="!props.palette || props.palette.length === 0" disabled>
+               Palette Empty
+           </v-chip>
+         </v-chip-group>
 
-        <template v-if="isColorMode && glyphData.palette">
-           <h4>Select Draw Character:</h4>
-           <v-chip-group mandatory v-model="selectedDrawChar" column>
-             <v-chip 
-                v-for="(color, char) in glyphData.palette.entries" 
-                :key="char"
-                :value="char"
-                variant="outlined"
-                label
-             >
-                 <div class="color-swatch-small" :style="{ backgroundColor: color }"></div>
-                 <code class="char-code-small">{{ char }}</code>
-             </v-chip>
-             <v-chip v-if="!glyphData.palette.entries || Object.keys(glyphData.palette.entries).length === 0" disabled>
-                 Palette Empty
-             </v-chip>
-           </v-chip-group>
+        <v-divider class="my-4"></v-divider>
+        <h4>Palette Entries:</h4>
+        <v-list density="compact" lines="one">
+          <v-list-item 
+            v-for="entry in props.palette" 
+            :key="entry.char"
+            class="palette-item"
+          >
+            <template v-slot:prepend>
+              <div class="color-swatch" :style="{ backgroundColor: entry.color }"></div>
+            </template>
+            <v-list-item-title><code class="char-code">{{ entry.char }}</code> : {{ entry.color }}</v-list-item-title>
+            <template v-slot:append>
+              <v-btn 
+                icon="mdi-delete" 
+                variant="text" 
+                size="small" 
+                @click="removePaletteEntry(entry.char)"
+                title="Remove Color"
+              ></v-btn>
+            </template>
+          </v-list-item>
+           <v-list-item v-if="!props.palette || props.palette.length === 0">
+              <v-list-item-title>Palette is empty.</v-list-item-title>
+           </v-list-item>
+         </v-list>
 
-           <v-divider class="my-4"></v-divider>
-           <h4>Palette Entries:</h4>
-           <v-list density="compact" lines="one">
-            <v-list-item 
-              v-for="(color, char) in glyphData.palette.entries" 
-              :key="char"
-              class="palette-item"
-            >
-              <template v-slot:prepend>
-                <div class="color-swatch" :style="{ backgroundColor: color }"></div>
-              </template>
-              <v-list-item-title><code class="char-code">{{ char }}</code> : {{ color }}</v-list-item-title>
-              <template v-slot:append>
-                <v-btn 
-                  icon="mdi-delete" 
-                  variant="text" 
-                  size="small" 
-                  @click="removePaletteEntry(char)"
-                  title="Remove Color"
-                ></v-btn>
-              </template>
-            </v-list-item>
-           </v-list>
+        <v-divider class="my-4"></v-divider>
 
-           <v-divider class="my-4"></v-divider>
-
-           <h4>Add New Color</h4>
-           <v-row dense>
-             <v-col cols="3">
-               <v-text-field 
-                 label="Char"
-                 v-model="newPaletteChar"
-                 maxlength="1"
-                 density="compact"
-                 :error-messages="newPaletteError"
-               ></v-text-field>
-             </v-col>
-             <v-col cols="6">
-                <v-text-field 
-                 label="Color (#RGB or #RRGGBB)"
-                 v-model="newPaletteColor"
-                  density="compact"
-                  :error-messages="newPaletteError"
-               ></v-text-field>
-               <!-- TODO: Optionally add v-color-picker -->
-             </v-col>
-             <v-col cols="3">
-               <v-btn @click="addPaletteEntry" color="primary" block>Add</v-btn>
-             </v-col>
-           </v-row>
-        </template>
-        
-        <div v-else-if="!isColorMode">
-           <h4>Select Draw Character:</h4>
-            <v-btn-toggle v-model="selectedDrawChar" mandatory density="compact">
-                <v-btn value="#"># (On)</v-btn>
-                <v-btn value=".">. (Off)</v-btn>
-            </v-btn-toggle>
-        </div>
+        <h4>Add New Color</h4>
+        <v-row dense>
+          <v-col cols="3">
+            <v-text-field 
+              label="Char"
+              v-model="newPaletteChar"
+              maxlength="1"
+              density="compact"
+              :error-messages="newPaletteError"
+            ></v-text-field>
+          </v-col>
+          <v-col cols="6">
+             <v-text-field 
+              label="Color (#RGB or #RRGGBB)"
+              v-model="newPaletteColor"
+               density="compact"
+               :error-messages="newPaletteError"
+            ></v-text-field>
+            <!-- TODO: Optionally add v-color-picker -->
+          </v-col>
+          <v-col cols="3">
+            <v-btn @click="addPaletteEntry" color="primary" block>Add</v-btn>
+          </v-col>
+        </v-row>
 
       </v-col>
     </v-row>
@@ -207,13 +192,9 @@ const props = defineProps({
     type: Object, // Expecting the Glyph object from Rust
     required: true,
   },
-  palette: {
+  palette: { // Processed palette array [{ char, color }, ...]
     type: Array,
     required: true
-  },
-  monochrome: {
-    type: Boolean,
-    default: false
   }
 });
 
@@ -269,23 +250,6 @@ const newPaletteChar = ref('');
 const newPaletteColor = ref('#FFFFFF');
 const newPaletteError = ref('');
 
-// Computed property to check if the glyph is in color mode (has a palette object)
-const isColorMode = computed(() => props.glyphData && props.glyphData.palette !== null && props.glyphData.palette !== undefined);
-
-// Toggle between color and monochrome mode
-function toggleColorMode() {
-  newPaletteError.value = ''; // Clear errors
-  let newPaletteValue = null;
-  if (!isColorMode.value) {
-    // Switching TO color mode: create empty palette if needed
-    newPaletteValue = props.glyphData.palette || { entries: {} }; 
-  } else {
-    // Switching TO monochrome mode: set palette to null
-    newPaletteValue = null;
-  }
-  emit('update:glyphField', { field: 'palette', value: newPaletteValue });
-}
-
 // Add a new entry to the palette
 function addPaletteEntry() {
   newPaletteError.value = ''; // Clear previous error
@@ -336,28 +300,25 @@ function removePaletteEntry(charToRemove) {
 // --- Bitmap Logic ---
 
 const isDrawing = ref(false); // Track if mouse button is down
-// State for currently selected drawing character
 const selectedDrawChar = ref('.'); // Default for mono off
 const selectedEraseChar = ref('.'); // Character used for erasing (right-click), default '.'
 const currentCharToDraw = ref('.'); // Character being used in the current draw stroke
 
-// Watch for mode changes to reset selected draw char
-watch(() => props.monochrome, (newMode) => {
-  console.log("Mode changed, resetting selectedDrawChar");
-  if (newMode) {
-    // Set default for monochrome (e.g., '#')
-    selectedDrawChar.value = '#'; 
-    selectedEraseChar.value = '.'; // Ensure erase char is valid for mono
-  } else {
-    // Set default for color (e.g., first palette char or '.')
-    selectedDrawChar.value = props.palette.length > 0 ? props.palette[0].char : '.';
-    selectedEraseChar.value = '.'; // Reset erase char if needed
-  }
-  // Ensure currentCharToDraw is updated if drawing wasn't active
-  if (!isDrawing.value) {
+// Watch palette changes to keep selectedDrawChar valid
+watch(() => props.palette, (newPalette) => {
+    console.log("Palette prop changed, updating selectedDrawChar if needed.");
+    // If the current selection is no longer valid or palette is empty
+    if (!newPalette.some(p => p.char === selectedDrawChar.value)) {
+        // Select the first char from the new palette, or '.' if empty
+        selectedDrawChar.value = newPalette.length > 0 ? newPalette[0].char : '.';
+        console.log(`Resetting selectedDrawChar to: ${selectedDrawChar.value}`);
+    }
+    // Reset erase char to '.' for simplicity
+    selectedEraseChar.value = '.'; 
+     if (!isDrawing.value) {
       currentCharToDraw.value = selectedDrawChar.value; 
   }
-}, { immediate: true }); // immediate: true to run on initial load
+}, { immediate: true, deep: true }); 
 
 // Watch for changes in glyph size to resize the bitmap
 watch(() => props.glyphData.size, (newSize, oldSize) => {
@@ -384,9 +345,9 @@ watch(() => props.glyphData.size, (newSize, oldSize) => {
   const currentBitmap = props.glyphData.bitmap;
   let newBitmap = [...currentBitmap]; // Start with a copy
   
-  // Determine the character to use for padding based on mode
-  const defaultChar = props.monochrome ? '.' : selectedDrawChar.value;
-  console.log(`Resizing: Using defaultChar: ${defaultChar} (Monochrome: ${props.monochrome})`);
+  // Determine the character to use for padding - always use selectedDrawChar
+  const defaultChar = selectedDrawChar.value;
+  console.log(`Resizing: Using defaultChar: ${defaultChar}`);
 
   // 1. Adjust Height
   if (newHeight > oldHeight) {
@@ -435,19 +396,12 @@ watch(() => props.glyphData.size, (newSize, oldSize) => {
 
 }, { deep: true }); // Use deep watch for object changes
 
-// Determine valid characters based on mode
+// Determine valid characters from the palette
 const validDrawChars = computed(() => {
-  if (props.monochrome) {
-    // For monochrome, typically only two options: on ('#') and off ('.')
-    // Adjust if your monochrome representation differs
-    return ['#', '.'];
-  } else {
-    // For color, valid chars are the keys in the palette
-    return props.palette.map(p => p.char);
-  }
+  return props.palette.map(p => p.char);
 });
 
-// Check if a character is valid in the current palette/mode
+// Check if a character is valid in the palette
 function isCharValid(char) {
   return validDrawChars.value.includes(char);
 }
@@ -470,31 +424,21 @@ const gridStyle = computed(() => {
   };
 });
 
-// Helper to get cell background color
+// Helper to get cell background color (always checks palette)
 function getCellStyle(char) {
-  if (props.monochrome) {
-    // Basic monochrome styling
-    return {
-      'background-color': char === '#' ? 'black' : 'white',
-      'border': '1px solid #eee'
-    };
-  } else {
-    // Color mode styling
     const paletteEntry = props.palette.find(p => p.char === char);
     if (paletteEntry) {
-       // Valid character: Use its color and a solid border
        return {
          'background-color': paletteEntry.color,
          'border': '1px solid #eee' 
        };
     } else {
-       // Invalid character: Use a neutral background and dashed red border
+       // Still show invalid chars with dashed border
        return {
-         'background-color': '#f0f0f0', // Neutral background for invalid chars
+         'background-color': '#f0f0f0',
          'border': '1px dashed red' 
        };
     }
-  }
 }
 
 // Renamed from handleCellClick - updates the cell at given coordinates with a specific character
@@ -609,12 +553,16 @@ pre {
 }
 
 .bitmap-cell {
-  min-width: 24px; /* Ensure button has size */
+  width: 24px; /* Explicit width */
+  height: 24px; /* Explicit height */
+  max-width: 24px; /* Prevent growing wider */
+  max-height: 24px; /* Prevent growing taller */
+  min-width: 24px; 
   min-height: 24px;
-  padding: 0;
-  border-radius: 0; /* Make it square */
+  padding: 0 !important; /* Force no padding */
+  border-radius: 0 !important; /* Force square */
   border: none;
-  box-shadow: none !important; /* Override Vuetify shadow */
+  box-shadow: none !important; 
 }
 
 /* Optional: change cursor */

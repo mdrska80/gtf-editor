@@ -174,7 +174,7 @@ function addGlyph() {
       unicode: null,
       char_repr: null,
       size: { width: 5, height: 7 }, // Default size, can be adjusted
-      palette: null, // Default to monochrome
+      palette: { entries: {} }, // Always initialize with empty palette object
       bitmap: Array(7).fill('.'.repeat(5)), // Create default bitmap based on size
       validation_warnings: null
   };
@@ -239,56 +239,68 @@ function updateGlyphData({ field, value }) {
      return;
   }
 
+  // Get a reference to the current glyph data for easier access
+  const currentGlyph = gtfData.value.glyphs[glyphIndex];
+
   // Handle specific fields
   let processedValue = value;
   if (field === 'char_repr') {
       // Ensure only the first character is taken, or null if empty
       processedValue = value.length > 0 ? value.charAt(0) : null;
+      
+      // --- Auto-populate Unicode (if char_repr is valid and unicode is empty) --- 
+      if (processedValue !== null && (currentGlyph.unicode === null || currentGlyph.unicode === '')) {
+          try {
+              const codePoint = processedValue.codePointAt(0);
+              if (codePoint !== undefined) {
+                  const unicodeString = `U+${codePoint.toString(16).toUpperCase().padStart(4, '0')}`;
+                  console.log(`Auto-populating Unicode for '${processedValue}' with ${unicodeString}`);
+                  // Directly update the unicode field in the data object
+                  currentGlyph.unicode = unicodeString; 
+              }
+          } catch (e) {
+              console.error("Error getting code point for auto-unicode:", e);
+          }
+      }
+      // --- End Auto-populate Unicode ---
+
   } else if (field === 'unicode' || field === 'name') {
       // For optional string fields like unicode, or required like name, set to null if empty string is entered
       processedValue = value.trim() === '' ? null : value;
       // Special handling for name: if name changes, update selectedGlyphName
       if (field === 'name' && processedValue !== null) {
          // Important: Need validation here to prevent duplicate names!
-         // For now, just update the selection if name changed
          selectedGlyphName.value = processedValue;
       } else if (field === 'name' && processedValue === null) {
-          // Prevent setting name to null/empty - should show validation error later
           console.error("Glyph name cannot be empty.");
           return; // Don't update if name is empty
       }
   } else if (field === 'size') {
-     // Value should be { width, height } or null if cleared
      processedValue = value; 
-     // TODO: When size changes, we might need to resize/clear the bitmap data!
-     // This requires careful handling later.
   } else if (field === 'palette') {
-    // Palette value is either the palette object or null
-    processedValue = value;
+    // Handles updates from add/remove palette entries
+    processedValue = value && typeof value === 'object' ? value : { entries: {} }; 
+    currentGlyph.palette = processedValue; 
+    console.log(`Updated glyph field '${field}':`, currentGlyph);
+    return; // Return early as we modified directly
   } else if (field === 'bitmap') {
-     // Value should be the new array of bitmap strings
      if (Array.isArray(value)) {
        processedValue = value;
      } else {
        console.error("Invalid value received for bitmap update, expected array.");
-       return; // Don't update if value is not an array
+       return; 
      }
   }
   
-  // Update the data
-  if (field in gtfData.value.glyphs[glyphIndex]) {
-      gtfData.value.glyphs[glyphIndex][field] = processedValue;
-      console.log(`Updated glyph field '${field}':`, gtfData.value.glyphs[glyphIndex]);
+  // Update the specific field that triggered the event (if not handled above)
+  if (field in currentGlyph) {
+      currentGlyph[field] = processedValue;
+      console.log(`Updated glyph field '${field}':`, currentGlyph);
   } else {
       console.error(`Attempted to update unknown field '${field}' on glyph.`);
   }
 
-  // If the name was changed, we might need to force reactivity update for the list title
-  // (Vue might not detect deep changes in the title computation automatically)
-  // A simple way (though not ideal) is to temporarily reset the array
-  // if (field === 'name') {
-  //   gtfData.value.glyphs = [...gtfData.value.glyphs];
-  // }
+  // ... (Potential reactivity updates if needed)
 }
 
 // Placeholder for the currently selected glyph ID/name

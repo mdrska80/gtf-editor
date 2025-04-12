@@ -8,7 +8,7 @@ pub struct Size {
     pub height: u32,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
 pub struct Palette {
     // Map character -> hex color string (e.g., '#' -> "#FFFFFF")
     pub entries: HashMap<char, String>,
@@ -20,7 +20,8 @@ pub struct Glyph {
     pub unicode: Option<String>, // e.g., "U+2022"
     pub char_repr: Option<char>, // e.g., Some('•') or None
     pub size: Option<Size>,
-    pub palette: Option<Palette>, // None for monochrome glyphs
+    // Palette is always present, even if empty, for color-always mode
+    pub palette: Option<Palette>, // Keep Option<> for parsing flexibility, but treat as always color
     pub bitmap: Vec<String>, // Vec of strings, each string is a row
     #[serde(default)] // Ensure warnings field defaults if missing in JSON
     pub validation_warnings: Option<Vec<String>>, // Warnings found during parsing
@@ -73,6 +74,7 @@ pub fn parse_gtf_content(content: &str) -> Result<GtfDocument, String> {
     let mut current_glyph: Option<Glyph> = None;
     let mut current_glyph_name: Option<String> = None; // Jméno aktuálně parsovaného glyphu
     let mut bitmap_lines_collected: u32 = 0; // Kolik řádků bitmapy jsme už načetli
+    let mut found_palette_block = false; // Still useful to check for duplicate PALETTE lines
 
     for (line_num, line) in content.lines().enumerate() {
         let trimmed_line = line.trim();
@@ -97,15 +99,15 @@ pub fn parse_gtf_content(content: &str) -> Result<GtfDocument, String> {
                     }
                     let name = parts[1].to_string();
                     current_glyph_name = Some(name.clone());
-                    // Vytvoříme nový glyph s výchozími hodnotami
+                    found_palette_block = false;
                     current_glyph = Some(Glyph {
                         name: name,
+                        palette: Some(Palette::default()),
                         unicode: None,
                         char_repr: None,
                         size: None,
-                        palette: None,
                         bitmap: Vec::new(),
-                        validation_warnings: None, // Initialize warnings as None
+                        validation_warnings: None,
                     });
                     bitmap_lines_collected = 0;
                     current_state = ParseState::InGlyphDefinition;
@@ -127,40 +129,40 @@ pub fn parse_gtf_content(content: &str) -> Result<GtfDocument, String> {
                 let glyph = current_glyph.as_mut().ok_or_else(|| format!("Line {}: Internal error: InGlyphDefinition state without a current glyph.", current_line_num))?;
 
                 if trimmed_line == "PALETTE" {
-                     if glyph.palette.is_some() {
+                     if found_palette_block {
                          return Err(format!("Line {}: Duplicate PALETTE definition for glyph '{}'.", current_line_num, glyph.name));
                      }
-                     glyph.palette = Some(Palette { entries: HashMap::new() });
+                     found_palette_block = true;
+                     if glyph.palette.is_none() {
+                         glyph.palette = Some(Palette::default());
+                     }
                      current_state = ParseState::InPalette;
                 } else if trimmed_line.starts_with("END GLYPH ") {
                     validate_end_glyph(trimmed_line, current_glyph_name.as_deref())
                          .map_err(|e| format!("Line {}: {}", current_line_num, e))?;
-                    // Pokud jsme zde, bitmapa nebyla nalezena, což je chyba, pokud byla očekávána size
                     if glyph.size.is_some() && glyph.bitmap.is_empty() {
                          return Err(format!("Line {}: END GLYPH found for '{}' but no bitmap data was provided (SIZE was defined).", current_line_num, glyph.name));
                     }
-                    // Pokud size nebyla definována, je to OK (glyph bez vizuální reprezentace?)
-                    document.glyphs.push(glyph.clone()); // Push clone
+                    document.glyphs.push(glyph.clone());
                     current_glyph = None;
                     current_glyph_name = None;
                     current_state = ParseState::Searching;
-                } else if glyph.size.is_some() && !trimmed_line.contains(' ') { // Potenciální začátek bitmapy
-                     // Potřebujeme zkontrolovat, jestli řádek odpovídá šířce
+                } else if glyph.size.is_some() && !trimmed_line.contains(' ') {
                      let expected_width = glyph.size.as_ref().unwrap().width as usize;
                      if trimmed_line.chars().count() != expected_width {
                           return Err(format!("Line {}: Bitmap line length ({}) does not match expected width ({}) for glyph '{}'.",
                                               current_line_num, trimmed_line.chars().count(), expected_width, glyph.name));
                      }
-                     // Validate characters and collect warnings
                      validate_bitmap_line(trimmed_line, glyph, current_line_num);
                      glyph.bitmap.push(trimmed_line.to_string());
                      bitmap_lines_collected = 1;
                      current_state = ParseState::InBitmap;
                 }
                  else {
-                    // Předpokládáme metadata
-                    parse_glyph_meta_line(trimmed_line, glyph)
-                         .map_err(|e| format!("Line {}: {}", current_line_num, e))?;
+                    let meta_result = parse_glyph_meta_line(trimmed_line, glyph);
+                     if let Err(e) = meta_result {
+                        return Err(format!("Line {}: {}", current_line_num, e));
+                    } 
                  }
             }
             ParseState::InPalette => {
@@ -170,7 +172,6 @@ pub fn parse_gtf_content(content: &str) -> Result<GtfDocument, String> {
                  if trimmed_line.starts_with("END GLYPH ") {
                      validate_end_glyph(trimmed_line, current_glyph_name.as_deref())
                           .map_err(|e| format!("Line {}: {}", current_line_num, e))?;
-                     // Pokud jsme zde, bitmapa nebyla nalezena
                      if glyph.size.is_some() && glyph.bitmap.is_empty() {
                           return Err(format!("Line {}: END GLYPH found for '{}' but no bitmap data was provided after PALETTE.", current_line_num, glyph.name));
                      }
@@ -178,19 +179,17 @@ pub fn parse_gtf_content(content: &str) -> Result<GtfDocument, String> {
                      current_glyph = None;
                      current_glyph_name = None;
                      current_state = ParseState::Searching;
-                 } else if glyph.size.is_some() && !trimmed_line.contains(' ') { // Potenciální začátek bitmapy hned po paletě
+                 } else if glyph.size.is_some() && !trimmed_line.contains(' ') {
                      let expected_width = glyph.size.as_ref().unwrap().width as usize;
                      if trimmed_line.chars().count() != expected_width {
                          return Err(format!("Line {}: Bitmap line length ({}) does not match expected width ({}) for glyph '{}'.",
                                              current_line_num, trimmed_line.chars().count(), expected_width, glyph.name));
                      }
-                     // Validate characters and collect warnings
                      validate_bitmap_line(trimmed_line, glyph, current_line_num);
                      glyph.bitmap.push(trimmed_line.to_string());
                      bitmap_lines_collected = 1;
                      current_state = ParseState::InBitmap;
                  } else {
-                     // Předpokládáme definici palety
                      parse_palette_line(trimmed_line, palette)
                           .map_err(|e| format!("Line {}: {}", current_line_num, e))?;
                  }
@@ -215,7 +214,6 @@ pub fn parse_gtf_content(content: &str) -> Result<GtfDocument, String> {
                     current_glyph_name = None;
                     current_state = ParseState::Searching;
                 } else {
-                    // Další řádek bitmapy
                     if bitmap_lines_collected >= expected_height {
                          return Err(format!("Line {}: Found more bitmap lines than expected ({}) for glyph '{}'.",
                                              current_line_num, expected_height, glyph.name));
@@ -224,11 +222,9 @@ pub fn parse_gtf_content(content: &str) -> Result<GtfDocument, String> {
                          return Err(format!("Line {}: Bitmap line length ({}) does not match expected width ({}) for glyph '{}'.",
                                              current_line_num, trimmed_line.chars().count(), expected_width, glyph.name));
                     }
-                    // Validate characters and collect warnings
                     validate_bitmap_line(trimmed_line, glyph, current_line_num);
                     glyph.bitmap.push(trimmed_line.to_string());
                     bitmap_lines_collected += 1;
-                    // Zůstáváme ve stavu InBitmap
                 }
             }
         } // konec match current_state
@@ -276,13 +272,12 @@ fn parse_glyph_meta_line(line: &str, glyph: &mut Glyph) -> Result<(), String> {
 
      match key {
          "UNICODE" => {
-             if !value.starts_with("U+") { // Základní kontrola formátu
+             if !value.starts_with("U+") {
                  return Err(format!("Invalid UNICODE format: '{}'. Expected 'U+XXXX'.", value));
              }
              glyph.unicode = Some(value.to_string());
          }
          "CHAR" => {
-             // Očekáváme jeden znak
              let chars: Vec<char> = value.chars().collect();
              if chars.len() != 1 {
                   return Err(format!("Invalid CHAR format: '{}'. Expected a single character.", value));
@@ -290,10 +285,10 @@ fn parse_glyph_meta_line(line: &str, glyph: &mut Glyph) -> Result<(), String> {
              glyph.char_repr = Some(chars[0]);
          }
          "SIZE" => {
-             let size = Size::from_str(value)?; // Použije naši implementaci FromStr
+             let size = Size::from_str(value)?;
              glyph.size = Some(size);
          }
-         _ => return Err(format!("Unknown glyph metadata key: '{}'", key)),
+         _ => return Err(format!("Unknown or invalid glyph metadata key: '{}'", key)),
      }
      Ok(())
 }
@@ -312,10 +307,9 @@ fn parse_palette_line(line: &str, palette: &mut Palette) -> Result<(), String> {
      }
      let palette_char = chars[0];
 
-     if !color_part.starts_with('#') || !(color_part.len() == 7 || color_part.len() == 4) { // #RRGGBB nebo #RGB
+     if !color_part.starts_with('#') || !(color_part.len() == 7 || color_part.len() == 4) {
          return Err(format!("Invalid palette color format: '{}'. Expected '#RRGGBB' or '#RGB'.", color_part));
      }
-     // TODO: Možná přidat detailnější validaci hex barev
 
      if palette.entries.insert(palette_char, color_part.to_string()).is_some() {
           return Err(format!("Duplicate palette definition for character '{}'", palette_char));
@@ -325,7 +319,7 @@ fn parse_palette_line(line: &str, palette: &mut Palette) -> Result<(), String> {
 }
 
 fn validate_end_glyph(line: &str, expected_name: Option<&str>) -> Result<(), String> {
-     let parts: Vec<&str> = line.splitn(3, ' ').collect(); // splitn 3 pro "END GLYPH name"
+     let parts: Vec<&str> = line.splitn(3, ' ').collect();
      if parts.len() < 3 || parts[0] != "END" || parts[1] != "GLYPH" {
          return Err(format!("Invalid END GLYPH format: '{}'.", line));
      }
@@ -340,42 +334,35 @@ fn validate_end_glyph(line: &str, expected_name: Option<&str>) -> Result<(), Str
      Ok(())
 }
 
-// Updated: Now collects warnings instead of returning Err for palette mismatches
 fn validate_bitmap_line(line: &str, glyph: &mut Glyph, line_num: usize) {
-    // Check if glyph is in color mode (has a palette)
     if let Some(palette) = &glyph.palette {
-        // Color mode: Check each character against the palette
-        for (char_index, char) in line.chars().enumerate() {
-            if !palette.entries.contains_key(&char) {
-                let warning = format!(
-                    "Line {}: Invalid character '{}' at position {} in bitmap for glyph '{}'. Character not found in palette.",
-                    line_num, char, char_index + 1, glyph.name
-                );
-                // Add warning to the glyph
-                if glyph.validation_warnings.is_none() {
-                    glyph.validation_warnings = Some(Vec::new());
+        if !palette.entries.is_empty() {
+            for (char_index, char) in line.chars().enumerate() {
+                if !palette.entries.contains_key(&char) {
+                    let warning = format!(
+                        "Line {}: Invalid character '{}' at position {} in bitmap for glyph '{}'. Character not found in palette.",
+                        line_num, char, char_index + 1, glyph.name
+                    );
+                    if glyph.validation_warnings.is_none() { glyph.validation_warnings = Some(Vec::new()); }
+                    glyph.validation_warnings.as_mut().unwrap().push(warning);
                 }
-                glyph.validation_warnings.as_mut().unwrap().push(warning);
-                // Don't return Err, just record the warning
             }
+        } else {
+            let warning = format!(
+                "Line {}: Cannot validate bitmap characters for glyph '{}' because palette data is missing unexpectedly.",
+                line_num, glyph.name
+            );
+            if glyph.validation_warnings.is_none() { glyph.validation_warnings = Some(Vec::new()); }
+            glyph.validation_warnings.as_mut().unwrap().push(warning);
         }
     } else {
-        // Monochrome mode: Check if characters are '#' or '.'
-        for (char_index, char) in line.chars().enumerate() {
-            if char != '#' && char != '.' {
-                 let warning = format!(
-                     "Line {}: Invalid character '{}' at position {} in bitmap for monochrome glyph '{}'. Only '#' or '.' allowed.",
-                     line_num, char, char_index + 1, glyph.name
-                 );
-                 // Also add this as a warning
-                 if glyph.validation_warnings.is_none() {
-                     glyph.validation_warnings = Some(Vec::new());
-                 }
-                 glyph.validation_warnings.as_mut().unwrap().push(warning);
-            }
-        }
+        let warning = format!(
+            "Line {}: Cannot validate bitmap characters for glyph '{}' because palette data is missing unexpectedly.",
+            line_num, glyph.name
+        );
+        if glyph.validation_warnings.is_none() { glyph.validation_warnings = Some(Vec::new()); }
+        glyph.validation_warnings.as_mut().unwrap().push(warning);
     }
-    // No return value needed (or implicitly returns ()) 
 }
 
 // --- Serialization Logic ---
@@ -395,8 +382,6 @@ pub fn serialize_gtf_document(document: &GtfDocument) -> Result<String, String> 
         writeln!(output, "AUTHOR {}", author).map_err(|e| e.to_string())?;
     }
     if let Some(description) = &document.header.description {
-        // Description might be multi-line, but GTF v2 expects single line value
-        // We'll replace newlines with spaces for safety, though ideally description is single line.
         let single_line_description = description.replace('\n', " ");
         writeln!(output, "DESCRIPTION {}", single_line_description).map_err(|e| e.to_string())?;
     }
@@ -407,7 +392,6 @@ pub fn serialize_gtf_document(document: &GtfDocument) -> Result<String, String> 
     for glyph in &document.glyphs {
         writeln!(output, "GLYPH {}", glyph.name).map_err(|e| e.to_string())?;
 
-        // Metadata
         if let Some(unicode) = &glyph.unicode {
             writeln!(output, "UNICODE {}", unicode).map_err(|e| e.to_string())?;
         }
@@ -418,19 +402,17 @@ pub fn serialize_gtf_document(document: &GtfDocument) -> Result<String, String> 
             writeln!(output, "SIZE {}x{}", size.width, size.height).map_err(|e| e.to_string())?;
         }
 
-        // Palette (if present)
         if let Some(palette) = &glyph.palette {
-            writeln!(output, "PALETTE").map_err(|e| e.to_string())?;
-            // Sort entries by char for consistent output
-            let mut sorted_entries: Vec<_> = palette.entries.iter().collect();
-            sorted_entries.sort_by_key(|(k, _)| *k);
-            for (char, color) in sorted_entries {
-                writeln!(output, "{} {}", char, color).map_err(|e| e.to_string())?;
+            if !palette.entries.is_empty() {
+                writeln!(output, "PALETTE").map_err(|e| e.to_string())?;
+                let mut sorted_entries: Vec<_> = palette.entries.iter().collect();
+                sorted_entries.sort_by_key(|(k, _)| *k);
+                for (char, color) in sorted_entries {
+                    writeln!(output, "{} {}", char, color).map_err(|e| e.to_string())?;
+                }
             }
-            // No END PALETTE in GTF v2, bitmap follows directly
         }
 
-        // Bitmap (if present and size is defined)
         if glyph.size.is_some() && !glyph.bitmap.is_empty() {
             for row in &glyph.bitmap {
                 writeln!(output, "{}", row).map_err(|e| e.to_string())?;
