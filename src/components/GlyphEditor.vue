@@ -49,7 +49,26 @@
         ></v-switch>
 
         <template v-if="isColorMode && glyphData.palette">
-          <v-list density="compact" lines="one">
+           <h4>Select Draw Character:</h4>
+           <v-chip-group mandatory v-model="selectedDrawChar" column>
+             <v-chip 
+                v-for="(color, char) in glyphData.palette.entries" 
+                :key="char"
+                :value="char"
+                variant="outlined"
+                label
+             >
+                 <div class="color-swatch-small" :style="{ backgroundColor: color }"></div>
+                 <code class="char-code-small">{{ char }}</code>
+             </v-chip>
+             <v-chip v-if="!glyphData.palette.entries || Object.keys(glyphData.palette.entries).length === 0" disabled>
+                 Palette Empty
+             </v-chip>
+           </v-chip-group>
+
+           <v-divider class="my-4"></v-divider>
+           <h4>Palette Entries:</h4>
+           <v-list density="compact" lines="one">
             <v-list-item 
               v-for="(color, char) in glyphData.palette.entries" 
               :key="char"
@@ -69,40 +88,43 @@
                 ></v-btn>
               </template>
             </v-list-item>
-             <v-list-item v-if="!glyphData.palette.entries || Object.keys(glyphData.palette.entries).length === 0">
-                <v-list-item-title class="text-grey">Palette is empty.</v-list-item-title>
-             </v-list-item>
-          </v-list>
+           </v-list>
 
-          <v-divider class="my-4"></v-divider>
+           <v-divider class="my-4"></v-divider>
 
-          <h4>Add New Color</h4>
-          <v-row dense>
-            <v-col cols="3">
-              <v-text-field 
-                label="Char"
-                v-model="newPaletteChar"
-                maxlength="1"
-                density="compact"
-                :error-messages="newPaletteError"
-              ></v-text-field>
-            </v-col>
-            <v-col cols="6">
+           <h4>Add New Color</h4>
+           <v-row dense>
+             <v-col cols="3">
                <v-text-field 
-                label="Color (#RGB or #RRGGBB)"
-                v-model="newPaletteColor"
+                 label="Char"
+                 v-model="newPaletteChar"
+                 maxlength="1"
                  density="compact"
                  :error-messages="newPaletteError"
-              ></v-text-field>
-              <!-- TODO: Optionally add v-color-picker -->
-            </v-col>
-            <v-col cols="3">
-              <v-btn @click="addPaletteEntry" color="primary" block>Add</v-btn>
-            </v-col>
-          </v-row>
+               ></v-text-field>
+             </v-col>
+             <v-col cols="6">
+                <v-text-field 
+                 label="Color (#RGB or #RRGGBB)"
+                 v-model="newPaletteColor"
+                  density="compact"
+                  :error-messages="newPaletteError"
+               ></v-text-field>
+               <!-- TODO: Optionally add v-color-picker -->
+             </v-col>
+             <v-col cols="3">
+               <v-btn @click="addPaletteEntry" color="primary" block>Add</v-btn>
+             </v-col>
+           </v-row>
         </template>
         
-        <p v-else-if="!isColorMode">(Monochrome Mode - Uses '#' and '.')</p>
+        <div v-else-if="!isColorMode">
+           <h4>Select Draw Character:</h4>
+            <v-btn-toggle v-model="selectedDrawChar" mandatory density="compact">
+                <v-btn value="#"># (On)</v-btn>
+                <v-btn value=".">. (Off)</v-btn>
+            </v-btn-toggle>
+        </div>
 
       </v-col>
     </v-row>
@@ -282,8 +304,22 @@ function removePaletteEntry(charToRemove) {
 
 // --- Bitmap Logic ---
 
-// TODO: Add state for currently selected drawing character/color
+// State for currently selected drawing character
 const selectedDrawChar = ref('.'); // Default for mono off
+
+// Watch for mode changes to reset selected draw char
+watch(isColorMode, (newIsColor, oldIsColor) => {
+    if (newIsColor !== oldIsColor) {
+        // Reset to default for the new mode
+        if (newIsColor && props.glyphData.palette) {
+            // Set to first palette char if available, otherwise keep default?
+            const firstChar = Object.keys(props.glyphData.palette.entries)[0];
+            selectedDrawChar.value = firstChar || ''; // Need a valid char from palette ideally
+        } else {
+            selectedDrawChar.value = '.'; // Default to off for mono
+        }
+    }
+});
 
 // Computed property for grid styling (CSS Grid)
 const gridStyle = computed(() => {
@@ -399,6 +435,19 @@ pre {
   left: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none; /* Allow clicking the button underneath */
+}
+
+.color-swatch-small {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #ccc;
+  margin-right: 5px;
+  display: inline-block;
+  vertical-align: middle;
+}
+.char-code-small {
+  font-family: monospace;
+  font-size: 0.9em;
 }
 
 </style> 
