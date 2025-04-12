@@ -256,19 +256,30 @@ function updateGlyphData({ field, value }) {
       </v-container>
       <!-- Display Editors or placeholder -->
       <HeaderEditor 
-        v-else-if="currentView === 'header' && gtfData" 
-        :headerData="gtfData.header" 
-        @update:headerField="updateHeaderData"
+        v-if="currentView === 'header' && gtfData" 
+        :header-data="gtfData.header" 
+        @update:header-field="updateHeaderData"
       />
-      <GlyphEditor 
-        v-else-if="currentView === 'glyph' && selectedGlyphData" 
-        :glyphData="selectedGlyphData" 
-        @update:glyphField="updateGlyphData"
+      
+      <!-- Pass palette and monochrome status explicitly -->
+      <GlyphEditor
+        v-if="currentView === 'glyph' && selectedGlyphData"
+        :key="selectedGlyphName" 
+        :glyph-data="selectedGlyphData"
+        :palette="selectedGlyphData.palette?.entries ? Object.entries(selectedGlyphData.palette.entries).map(([char, color]) => ({ char, color })) : []" 
+        :monochrome="selectedGlyphData.palette === null || selectedGlyphData.palette === undefined"
+        @update:glyph-field="updateGlyphData"
       />
-      <v-container v-else>
-        <p v-if="!gtfData">Please open a GTF file using the button above.</p>
-        <p v-else>Select an item from the list on the left.</p>
+
+      <!-- Placeholder for when nothing is selected or data is loading -->
+      <v-container v-if="!currentView && gtfData">
+        <p>Select the Font Header or a Glyph from the list to start editing.</p>
       </v-container>
+       <v-container v-if="!gtfData">
+        <p>Open a .gtf file to begin.</p>
+        <p v-if="currentError" class="error--text">{{ currentError }}</p>
+      </v-container>
+
     </v-main>
   </v-app>
 </template>

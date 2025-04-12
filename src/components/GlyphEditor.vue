@@ -2,6 +2,24 @@
   <v-container v-if="glyphData">
     <h2>Glyph Editor: {{ glyphData.name }}</h2>
 
+    <!-- Display Validation Warnings -->
+    <v-alert
+      v-if="glyphData.validation_warnings && glyphData.validation_warnings.length > 0"
+      type="warning"
+      title="File Loading Warnings"
+      closable
+      prominent
+      class="mb-4"
+    >
+      <p>The following issues were found when loading this glyph:</p>
+      <ul>
+        <li v-for="(warning, index) in glyphData.validation_warnings" :key="index">
+          {{ warning }}
+        </li>
+      </ul>
+      <p class="mt-2">Please correct the bitmap data or the palette definition.</p>
+    </v-alert>
+
     <v-row>
       <v-col cols="12" md="6">
         <h3>Metadata</h3>
@@ -188,6 +206,14 @@ const props = defineProps({
   glyphData: {
     type: Object, // Expecting the Glyph object from Rust
     required: true,
+  },
+  palette: {
+    type: Array,
+    required: true
+  },
+  monochrome: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -316,63 +342,159 @@ const selectedEraseChar = ref('.'); // Character used for erasing (right-click),
 const currentCharToDraw = ref('.'); // Character being used in the current draw stroke
 
 // Watch for mode changes to reset selected draw char
-watch(isColorMode, (newIsColor, oldIsColor) => {
-    if (newIsColor !== oldIsColor) {
-        // Reset to default for the new mode
-        if (newIsColor && props.glyphData.palette) {
-            // Set to first palette char if available, otherwise keep default?
-            const firstChar = Object.keys(props.glyphData.palette.entries)[0];
-            selectedDrawChar.value = firstChar || ''; // Need a valid char from palette ideally
-        } else {
-            selectedDrawChar.value = '.'; // Default to off for mono
-        }
-    }
-});
-
-// Computed property for grid styling (CSS Grid)
-const gridStyle = computed(() => {
-  if (props.glyphData && props.glyphData.size) {
-    return {
-      display: 'grid',
-      gridTemplateColumns: `repeat(${props.glyphData.size.width}, auto)`,
-      gap: '1px',
-      backgroundColor: '#ccc', // Grid lines
-      border: '1px solid #ccc',
-      width: 'min-content' // Prevent grid from stretching
-    };
+watch(() => props.monochrome, (newMode) => {
+  console.log("Mode changed, resetting selectedDrawChar");
+  if (newMode) {
+    // Set default for monochrome (e.g., '#')
+    selectedDrawChar.value = '#'; 
+    selectedEraseChar.value = '.'; // Ensure erase char is valid for mono
+  } else {
+    // Set default for color (e.g., first palette char or '.')
+    selectedDrawChar.value = props.palette.length > 0 ? props.palette[0].char : '.';
+    selectedEraseChar.value = '.'; // Reset erase char if needed
   }
-  return {};
+  // Ensure currentCharToDraw is updated if drawing wasn't active
+  if (!isDrawing.value) {
+      currentCharToDraw.value = selectedDrawChar.value; 
+  }
+}, { immediate: true }); // immediate: true to run on initial load
+
+// Watch for changes in glyph size to resize the bitmap
+watch(() => props.glyphData.size, (newSize, oldSize) => {
+  console.log("Size changed:", oldSize, "->", newSize);
+  if (!props.glyphData || !props.glyphData.bitmap || !newSize || !oldSize) {
+    console.log("Skipping resize: Missing data");
+    return; // Exit if essential data is missing
+  }
+
+  // Ensure width/height are numbers
+  const newWidth = Number(newSize.width) || 0;
+  const newHeight = Number(newSize.height) || 0;
+  const oldWidth = Number(oldSize.width) || 0;
+  const oldHeight = Number(oldSize.height) || 0;
+
+  // Basic validation
+  if (newWidth <= 0 || newHeight <= 0) {
+      console.warn("Invalid new dimensions, skipping resize.");
+      // Optionally reset bitmap or handle differently
+      // emit('update:glyphField', { field: 'bitmap', value: [] }); 
+      return;
+  }
+
+  const currentBitmap = props.glyphData.bitmap;
+  let newBitmap = [...currentBitmap]; // Start with a copy
+  
+  // Determine the character to use for padding based on mode
+  const defaultChar = props.monochrome ? '.' : selectedDrawChar.value;
+  console.log(`Resizing: Using defaultChar: ${defaultChar} (Monochrome: ${props.monochrome})`);
+
+  // 1. Adjust Height
+  if (newHeight > oldHeight) {
+    // Add rows
+    // Ensure new rows have the correct width (newWidth, not oldWidth)
+    const rowToAdd = defaultChar.repeat(newWidth);
+    for (let i = oldHeight; i < newHeight; i++) {
+      newBitmap.push(rowToAdd);
+    }
+  } else if (newHeight < oldHeight) {
+    // Remove rows
+    newBitmap = newBitmap.slice(0, newHeight);
+  }
+
+  // 2. Adjust Width (applied to the potentially height-adjusted bitmap)
+  if (newWidth !== oldWidth) {
+    newBitmap = newBitmap.map(row => {
+      // Make sure 'row' is actually a string before calling string methods
+      const currentRow = String(row || ''); 
+      if (newWidth > oldWidth) {
+        // Add padding
+        return currentRow.padEnd(newWidth, defaultChar);
+      } else {
+        // Truncate
+        return currentRow.slice(0, newWidth);
+      }
+    });
+  }
+
+  // Check if bitmap actually changed before emitting
+  // Use a more reliable check than JSON.stringify for comparing arrays of strings
+  let changed = newBitmap.length !== currentBitmap.length;
+  if (!changed) {
+      for (let i = 0; i < newBitmap.length; i++) {
+          if (newBitmap[i] !== currentBitmap[i]) {
+              changed = true;
+              break;
+          }
+      }
+  }
+
+  if (changed) {
+      console.log("Resizing bitmap. Old:", currentBitmap, "New:", newBitmap);
+      emit('update:glyphField', { field: 'bitmap', value: newBitmap });
+  }
+
+}, { deep: true }); // Use deep watch for object changes
+
+// Determine valid characters based on mode
+const validDrawChars = computed(() => {
+  if (props.monochrome) {
+    // For monochrome, typically only two options: on ('#') and off ('.')
+    // Adjust if your monochrome representation differs
+    return ['#', '.'];
+  } else {
+    // For color, valid chars are the keys in the palette
+    return props.palette.map(p => p.char);
+  }
 });
 
-// Helper to check if a character is valid in the current context
+// Check if a character is valid in the current palette/mode
 function isCharValid(char) {
-   if (isColorMode.value) {
-     // Color mode: valid if palette exists and contains the char
-     return !!(props.glyphData.palette && props.glyphData.palette.entries && Object.prototype.hasOwnProperty.call(props.glyphData.palette.entries, char));
-   } else {
-     // Monochrome mode: valid if # or .
-     return char === '#' || char === '.';
-   }
+  return validDrawChars.value.includes(char);
 }
+
+// Dynamic grid style based on size
+const gridStyle = computed(() => {
+  if (!props.glyphData || !props.glyphData.size) {
+    return {};
+  }
+  const { width, height } = props.glyphData.size;
+  // Use the size defined in CSS for consistency
+  const cellSize = '24px'; // Match .bitmap-cell min-width/min-height
+  return {
+    display: 'grid',
+    'grid-template-columns': `repeat(${width}, ${cellSize})`,
+    'grid-template-rows': `repeat(${height}, ${cellSize})`,
+    gap: '1px', // Adjust spacing between cells
+    'justify-content': 'start', // Prevent stretching
+    'align-content': 'start'
+  };
+});
 
 // Helper to get cell background color
 function getCellStyle(char) {
-  let bgColor = '#ffffff';
-  let style = {}; 
-
-  if (isColorMode.value && props.glyphData.palette && props.glyphData.palette.entries) {
-      if (Object.prototype.hasOwnProperty.call(props.glyphData.palette.entries, char)) {
-          bgColor = props.glyphData.palette.entries[char];
-      } else {
-          bgColor = '#f0f0f0'; 
-          style.border = '1px dashed red'; 
-      }
+  if (props.monochrome) {
+    // Basic monochrome styling
+    return {
+      'background-color': char === '#' ? 'black' : 'white',
+      'border': '1px solid #eee'
+    };
   } else {
-      bgColor = (char === '#') ? '#000000' : '#ffffff';
-      style.border = '1px solid transparent'; 
+    // Color mode styling
+    const paletteEntry = props.palette.find(p => p.char === char);
+    if (paletteEntry) {
+       // Valid character: Use its color and a solid border
+       return {
+         'background-color': paletteEntry.color,
+         'border': '1px solid #eee' 
+       };
+    } else {
+       // Invalid character: Use a neutral background and dashed red border
+       return {
+         'background-color': '#f0f0f0', // Neutral background for invalid chars
+         'border': '1px dashed red' 
+       };
+    }
   }
-  style.backgroundColor = bgColor;
-  return style;
 }
 
 // Renamed from handleCellClick - updates the cell at given coordinates with a specific character
