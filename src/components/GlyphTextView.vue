@@ -41,18 +41,27 @@ const formattedGlyphText = computed(() => {
   }
 
   // Palette
-  if (g.palette && g.palette.entries && Object.keys(g.palette.entries).length > 0) {
+  let hasPalette = g.palette && g.palette.entries && Object.keys(g.palette.entries).length > 0;
+  if (hasPalette) {
     lines.push('PALETTE');
     // Sort palette entries by character for consistency
     const sortedEntries = Object.entries(g.palette.entries).sort(([charA], [charB]) => charA.localeCompare(charB));
     for (const [char, color] of sortedEntries) {
       lines.push(`${char} ${color}`);
     }
+    lines.push('END PALETTE');
   }
 
-  // Bitmap
-  if (g.bitmap && g.bitmap.length > 0) {
-    lines.push(...g.bitmap);
+  // DATA keyword
+  let hasBitmap = g.bitmap && g.bitmap.length > 0;
+  let hasSize = g.size && g.size.width !== undefined && g.size.height !== undefined;
+  if (hasSize || hasBitmap) {
+      lines.push('DATA');
+      // Bitmap
+      if (hasBitmap) {
+        lines.push(...g.bitmap);
+      }
+      lines.push('END DATA');
   }
 
   // End

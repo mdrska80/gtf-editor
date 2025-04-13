@@ -45,14 +45,14 @@ Soubor se skládá ze dvou hlavních částí:
   - `SIZE <šířka>x<výška>`: Rozměry bitmapy glyphu (např. `5x7`). Povinné, pokud má glyph bitmapu.
 - **Sekce Palety (Palette):** (Volitelná)
   - Pokud je přítomna, začíná řádkem `PALETTE`.
-  - Obsahuje definice barev pro znaky použité v bitmapě *pro tento specifický glyph*.
-  - Pokud je definována, kompletně přepisuje `DEFAULT_PALETTE` z hlavičky pro tento glyph.
-  - Pokud sekce `PALETTE` chybí, glyph použije (implicitně nebo explicitně dle editoru) `DEFAULT_PALETTE` z hlavičky, pokud existuje.
-- **Bitmapa (Bitmap):** (Povinná, pokud je definováno `SIZE`)
-  - Následuje hned po metadatech nebo po sekci palety.
-  - Skládá se z `<výška>` řádků.
-  - Každý řádek má délku `<šířka>` znaků.
-  - Pokud je definována neprázdná paleta (ať už glyphu nebo výchozí), všechny znaky v bitmapě by měly odpovídat znakům definovaným v příslušné paletě.
+  - Obsahuje definice barev `<znak> <#hex_barva>`.
+  - Musí být ukončena řádkem `END PALETTE`.
+- **Oddělovač Dat:**
+  - Řádek `DATA` musí následovat po metadatech a případném bloku `PALETTE` / `END PALETTE`.
+- **Bitmapa (Bitmap):**
+  - Následuje hned po řádku `DATA`.
+  - Skládá se z `<výška>` řádků, každý o délce `<šířka>` znaků.
+  - Musí být ukončena řádkem `END DATA`.
 - Každá definice končí řádkem `END GLYPH <název_glyphu>`.
   - `<název_glyphu>` se musí shodovat s názvem na začátku definice.
 - Za každým `END GLYPH` blokem následuje jeden prázdný řádek.
@@ -71,36 +71,53 @@ Soubor se skládá ze dvou hlavních částí:
 ```gtf
 HEADER
 FONT ExampleFont
-VERSION 1.0
+VERSION 2.1
 AUTHOR Gemini
-DESCRIPTION Example file with default palette.
+DESCRIPTION Example file with default palette and END tags.
 DEFAULT_SIZE 3x3
 DEFAULT_PALETTE
-  . #000000 // Black for '.'
-  # #FFFFFF // White for '#'
-  ? #FF00FF // Magenta for unknown/error?
+  . #000000
+  # #FFFFFF
+END PALETTE // Optional for DEFAULT_PALETTE?
 END HEADER
 
-GLYPH A // Uses default palette implicitly and default size
+GLYPH A
 UNICODE U+0041
 CHAR A
-SIZE 3x3 // Explicit size (could be omitted if matching default)
+SIZE 3x3
+PALETTE
+  . #000000
+  # #FFFFFF
+END PALETTE
+DATA
 .#.
 ###
 .#.
+END DATA
 END GLYPH A
 
-GLYPH B // Overrides default palette, uses default size
-UNICODE U+0042
+GLYPH B
 CHAR B
-SIZE 3x3 // Explicit size
+SIZE 3x3
 PALETTE
-  x #FF0000 // Red
-  o #00FF00 // Green
-xox
-ooo
-xox
+  x #FF0000
+  o #00FF00
+END PALETTE
+DATA
+...
+.o.
+...
+END DATA
 END GLYPH B
+
+GLYPH Mono
+SIZE 2x2
+CHAR m
+DATA
+#.
+.#
+END DATA
+END GLYPH Mono
 
 ```
 
