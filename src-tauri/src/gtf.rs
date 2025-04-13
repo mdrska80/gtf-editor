@@ -47,14 +47,16 @@ pub struct GtfDocument {
 
 // --- Parsing Logic ---
 
-#[derive(Debug, PartialEq)] // Přidáme PartialEq pro snadnější porovnání
+#[derive(Debug, PartialEq, Clone, Copy)]
 enum ParseState {
     Searching,
     InHeader,
     InDefaultPalette,
     InGlyphDefinition,
     InPalette,
+    ExpectingDataKeyword,
     InBitmap,
+    ExpectingEndGlyph,
 }
 
 // Pomocná struktura pro parsování SIZE
@@ -208,95 +210,31 @@ pub fn parse_gtf_content(content: &str) -> Result<GtfDocument, String> {
                  let glyph = current_glyph.as_mut().ok_or_else(|| format!("Line {}: Internal error: InPalette state without a current glyph.", current_line_num))?;
                  let palette = glyph.palette.as_mut().ok_or_else(|| format!("Line {}: Internal error: InPalette state without a palette structure.", current_line_num))?;
 
-                 if trimmed_line.starts_with("END GLYPH ") {
-                     validate_end_glyph(trimmed_line, current_glyph_name.as_deref())
-                          .map_err(|e| format!("Line {}: {}", current_line_num, e))?;
-                     if glyph.size.is_some() && glyph.bitmap.is_empty() {
-                          return Err(format!("Line {}: END GLYPH found for '{}' but no bitmap data was provided after PALETTE.", current_line_num, glyph.name));
-                     }
-                     document.glyphs.push(glyph.clone());
-                     current_glyph = None;
-                     current_glyph_name = None;
-                     current_state = ParseState::Searching;
-                 } else if glyph.size.is_some() && !trimmed_line.contains(' ') {
-                     let expected_width = glyph.size.as_ref().unwrap().width as usize;
-                     if trimmed_line.chars().count() != expected_width {
-                         let warning_msg = format!(
-                            "Line {}: Bitmap line length ({}) does not match expected width ({}) for glyph '{}'. Loading as-is.",
-                            current_line_num, trimmed_line.chars().count(), expected_width, glyph.name
-                          );
-                          println!("Parser Warning: {}", warning_msg);
-                          if glyph.validation_warnings.is_none() {
-                              glyph.validation_warnings = Some(Vec::new());
-                          }
-                          glyph.validation_warnings.as_mut().unwrap().push(warning_msg);
-                     }
-                     
-                     validate_bitmap_line(trimmed_line, glyph, current_line_num);
-                     glyph.bitmap.push(trimmed_line.to_string());
-                     bitmap_lines_collected = 1;
-                     current_state = ParseState::InBitmap;
+                 if trimmed_line == "END PALETTE" {
+                    // Found the end of the palette section
+                    if glyph.size.is_some() {
+                         // Expect DATA next since SIZE was defined
+                         current_state = ParseState::ExpectingDataKeyword; 
+                    } else {
+                         // No SIZE defined, so no bitmap expected. Expect END GLYPH next.
+                         current_state = ParseState::ExpectingEndGlyph;
+                    }
                  } else {
+                     // If not END PALETTE, assume it's a palette entry
                      parse_palette_line(trimmed_line, palette)
-                          .map_err(|e| format!("Line {}: {}", current_line_num, e))?;
+                          .map_err(|e| format!("Line {}: Error parsing palette entry: {}", current_line_num, e))?;
+                     // Stay in InPalette state to collect more entries
                  }
             }
             ParseState::InBitmap => {
                 let glyph = current_glyph.as_mut().ok_or_else(|| format!("Line {}: Internal error: InBitmap state without a current glyph.", current_line_num))?;
                 let size = glyph.size.as_ref().ok_or_else(|| format!("Line {}: Internal error: InBitmap state without size defined for glyph '{}'.", current_line_num, glyph.name))?;
                 let expected_height = size.height;
-                let expected_width = size.width as usize;
 
-                if trimmed_line.starts_with("END GLYPH ") {
-                    validate_end_glyph(trimmed_line, current_glyph_name.as_deref())
-                         .map_err(|e| format!("Line {}: {}", current_line_num, e))?;
-
-                    if bitmap_lines_collected < expected_height {
-                        // Add warning for too few lines
-                        let warning_msg = format!(
-                            "Line {}: Expected {} bitmap lines for glyph '{}' based on SIZE, but only found {}. Glyph might be incomplete.",
-                            current_line_num, expected_height, glyph.name, bitmap_lines_collected
-                        );
-                        println!("Parser Warning: {}", warning_msg); // Log on backend
-
-                        if glyph.validation_warnings.is_none() {
-                            glyph.validation_warnings = Some(Vec::new());
-                        }
-                        // This unwrap is safe because we just checked/initialized
-                        glyph.validation_warnings.as_mut().unwrap().push(warning_msg);
-                        // Continue to add the glyph despite the warning
-                    }
-                    // If bitmap_lines_collected == expected_height, it's fine.
-                    // If bitmap_lines_collected > expected_height, we already logged warnings and ignored extra lines,
-                    // so we still add the glyph here with the lines we *did* collect (up to expected_height).
-
-                    document.glyphs.push(glyph.clone());
-                    current_glyph = None;
-                    current_glyph_name = None;
-                    current_state = ParseState::Searching;
-                } else {
-                    // --- MODIFIED Check: Warn instead of error for too many lines --- 
-                    if bitmap_lines_collected >= expected_height {
-                         // Don't error, add a warning instead
-                         let warning_msg = format!(
-                            "Line {}: Found more bitmap lines than expected ({}) for glyph '{}'. Extra line ignored.",
-                            current_line_num, expected_height, glyph.name
-                         );
-                         println!("Parser Warning: {}", warning_msg); // Log on backend
-
-                         if glyph.validation_warnings.is_none() {
-                             glyph.validation_warnings = Some(Vec::new());
-                         }
-                         // This unwrap is safe because we just checked/initialized
-                         glyph.validation_warnings.as_mut().unwrap().push(warning_msg);
-
-                         // Skip processing this extra line for the bitmap itself
-                         // Let the loop continue to find END GLYPH or next line
-                         continue; // Skips the rest of this 'else' block iteration
-                         // --- END MODIFIED Check --- 
-                    }
-                    
-                    // This code now only runs if bitmap_lines_collected < expected_height
+                // Logic based on lines collected vs expected
+                if bitmap_lines_collected < expected_height {
+                    // --- Still collecting expected lines ---
+                    // Process line (lenient width check, add warning if needed)
                     let expected_width = size.width as usize;
                     if trimmed_line.chars().count() != expected_width {
                          let warning_msg = format!(
@@ -309,20 +247,80 @@ pub fn parse_gtf_content(content: &str) -> Result<GtfDocument, String> {
                           }
                           glyph.validation_warnings.as_mut().unwrap().push(warning_msg);
                     }
-                    
                     validate_bitmap_line(trimmed_line, glyph, current_line_num);
                     glyph.bitmap.push(trimmed_line.to_string());
                     bitmap_lines_collected += 1;
+                    // Stay in InBitmap state
+
+                } else {
+                    // --- Already collected expected_height lines, or potentially more ---
+                    // Now we should only find END DATA
+                    if trimmed_line == "END DATA" {
+                       current_state = ParseState::ExpectingEndGlyph;
+                    } else {
+                         // Didn't find END DATA where expected (or found yet another extra line)
+                         let warning_msg = format!(
+                            "Line {}: Expected END DATA after {} bitmap lines for glyph '{}', found '{}'. Ignoring line.",
+                            current_line_num, expected_height, glyph.name, trimmed_line
+                         );
+                         println!("Parser Warning: {}", warning_msg);
+                         if glyph.validation_warnings.is_none() { glyph.validation_warnings = Some(Vec::new()); }
+                         glyph.validation_warnings.as_mut().unwrap().push(warning_msg);
+                         // IMPORTANT: Stay in InBitmap state, ignoring this line and hoping END DATA appears later.
+                         // We intentionally DO NOT increment bitmap_lines_collected here,
+                         // as we only count valid or warned *bitmap* lines.
+                    }
                 }
+            }
+            ParseState::ExpectingDataKeyword => {
+                 // We are expecting the DATA keyword here
+                 let glyph_name = current_glyph_name.as_deref().unwrap_or("Unknown"); // Use stored name for error
+                 if trimmed_line == "DATA" {
+                     current_state = ParseState::InBitmap;
+                     bitmap_lines_collected = 0; // Reset for this glyph
+                 } else {
+                     return Err(format!("Line {}: Expected DATA keyword after palette for glyph '{}', found '{}'.",
+                                         current_line_num, glyph_name, trimmed_line));
+                 }
+            }
+            ParseState::ExpectingEndGlyph => {
+                 let glyph = current_glyph.as_ref().ok_or_else(|| format!("Line {}: Internal error: Reached ExpectingEndGlyph without a current glyph.", current_line_num))?;
+                 if trimmed_line.starts_with("END GLYPH ") {
+                     validate_end_glyph(trimmed_line, current_glyph_name.as_deref())?;
+                     document.glyphs.push(glyph.clone());
+                     current_glyph = None;
+                     current_glyph_name = None;
+                     current_state = ParseState::Searching;
+                 } else {
+                     // If we are expecting END GLYPH, anything else is an error.
+                     return Err(format!("Line {}: Expected END GLYPH for glyph '{}', found '{}'.",
+                                         current_line_num, glyph.name, trimmed_line));
+                 }
             }
         } // konec match current_state
     } // konec for line
 
-    // Finální kontrola stavu
-    if current_state != ParseState::Searching {
+    // Final state check needs adjustment if ending in InBitmap due to missing END DATA/END GLYPH
+    if current_state == ParseState::InBitmap {
+        if let Some(glyph) = current_glyph {
+            let size = glyph.size.as_ref();
+            let expected_height = size.map_or(0, |s| s.height);
+            let warning_msg = format!(
+                "Parsing ended while in bitmap section for glyph '{}'. Expected {} lines, found {}. Missing END DATA or END GLYPH?", 
+                glyph.name, expected_height, bitmap_lines_collected
+            );
+            println!("Parser Warning: {}", warning_msg);
+             // Decide whether to add the incomplete glyph with a warning
+            let mut final_glyph = glyph.clone();
+            if final_glyph.validation_warnings.is_none() { final_glyph.validation_warnings = Some(Vec::new()); }
+            final_glyph.validation_warnings.as_mut().unwrap().push(warning_msg);
+            document.glyphs.push(final_glyph);
+        } else {
+             return Err("Parsing ended unexpectedly in InBitmap state without a current glyph.".to_string());
+        }
+    } else if current_state != ParseState::Searching {
         return Err(format!("Parsing ended unexpectedly in state: {:?}. Missing END statement?", current_state));
-    }
-    if current_glyph.is_some() {
+    } else if current_glyph.is_some() { // Should be caught by previous check, but belt-and-suspenders
          return Err(format!("Parsing ended but glyph '{}' was not properly closed with END GLYPH.",
                             current_glyph_name.unwrap_or_default()));
     }
@@ -466,74 +464,101 @@ pub fn serialize_gtf_document(document: &GtfDocument) -> Result<String, String> 
     let mut output = String::new();
 
     // --- Serialize Header ---
-    writeln!(output, "HEADER").map_err(|e| e.to_string())?;
+    writeln!(output, "HEADER").map_err(|e| format!("Failed to write HEADER: {}", e))?;
     if let Some(name) = &document.header.font_name {
-        writeln!(output, "FONT {}", name).map_err(|e| e.to_string())?;
+        writeln!(output, "FONT {}", name).map_err(|e| format!("Failed to write FONT: {}", e))?;
     }
     if let Some(version) = &document.header.version {
-        writeln!(output, "VERSION {}", version).map_err(|e| e.to_string())?;
+        writeln!(output, "VERSION {}", version).map_err(|e| format!("Failed to write VERSION: {}", e))?;
     }
     if let Some(author) = &document.header.author {
-        writeln!(output, "AUTHOR {}", author).map_err(|e| e.to_string())?;
+        writeln!(output, "AUTHOR {}", author).map_err(|e| format!("Failed to write AUTHOR: {}", e))?;
     }
     if let Some(description) = &document.header.description {
         let single_line_description = description.replace('\n', " ");
-        writeln!(output, "DESCRIPTION {}", single_line_description).map_err(|e| e.to_string())?;
+        writeln!(output, "DESCRIPTION {}", single_line_description).map_err(|e| format!("Failed to write DESCRIPTION: {}", e))?;
     }
     
     // Serialize Default Size if present
     if let Some(size) = &document.header.default_size {
-        writeln!(output, "DEFAULT_SIZE {}x{}", size.width, size.height).map_err(|e| e.to_string())?;
+        writeln!(output, "DEFAULT_SIZE {}x{}", size.width, size.height).map_err(|e| format!("Failed to write DEFAULT_SIZE: {}", e))?;
     }
 
     // Serialize Default Palette if present and not empty
     if let Some(def_palette) = &document.header.default_palette {
         if !def_palette.entries.is_empty() {
-             writeln!(output, "DEFAULT_PALETTE").map_err(|e| e.to_string())?;
+             writeln!(output, "DEFAULT_PALETTE").map_err(|e| format!("Failed to write DEFAULT_PALETTE line: {}", e))?;
              let mut sorted_entries: Vec<_> = def_palette.entries.iter().collect();
              sorted_entries.sort_by_key(|(k, _)| *k);
              for (char, color) in sorted_entries {
-                 writeln!(output, "{} {}", char, color).map_err(|e| e.to_string())?;
+                 writeln!(output, "{} {}", char, color).map_err(|e| format!("Failed to write palette entry for '{}': {}", char, e))?;
              }
         }
     }
 
-    writeln!(output, "END HEADER").map_err(|e| e.to_string())?;
-    writeln!(output).map_err(|e| e.to_string())?; // Blank line after header
+    writeln!(output, "END HEADER").map_err(|e| format!("Failed to write END HEADER: {}", e))?;
+    writeln!(output).map_err(|e| format!("Failed to write blank line after header: {}", e))?; 
 
     // --- Serialize Glyphs ---
     for glyph in &document.glyphs {
-        writeln!(output, "GLYPH {}", glyph.name).map_err(|e| e.to_string())?;
+        writeln!(output, "GLYPH {}", glyph.name)
+            .map_err(|e| format!("Failed to write GLYPH for '{}': {}", glyph.name, e))?;
 
+        // Write Metadata
         if let Some(unicode) = &glyph.unicode {
-            writeln!(output, "UNICODE {}", unicode).map_err(|e| e.to_string())?;
+            writeln!(output, "UNICODE {}", unicode)
+                .map_err(|e| format!("Failed to write UNICODE for '{}': {}", glyph.name, e))?;
         }
         if let Some(char_repr) = glyph.char_repr {
-            writeln!(output, "CHAR {}", char_repr).map_err(|e| e.to_string())?;
+            writeln!(output, "CHAR {}", char_repr)
+                .map_err(|e| format!("Failed to write CHAR for '{}': {}", glyph.name, e))?;
         }
         if let Some(size) = &glyph.size {
-            writeln!(output, "SIZE {}x{}", size.width, size.height).map_err(|e| e.to_string())?;
+            writeln!(output, "SIZE {}x{}", size.width, size.height)
+                .map_err(|e| format!("Failed to write SIZE for '{}': {}", glyph.name, e))?;
         }
 
+        // Write Palette Block (if entries exist)
         if let Some(palette) = &glyph.palette {
             if !palette.entries.is_empty() {
-                writeln!(output, "PALETTE").map_err(|e| e.to_string())?;
+                writeln!(output, "PALETTE")
+                    .map_err(|e| format!("Failed to write PALETTE for '{}': {}", glyph.name, e))?;
                 let mut sorted_entries: Vec<_> = palette.entries.iter().collect();
                 sorted_entries.sort_by_key(|(k, _)| *k);
                 for (char, color) in sorted_entries {
-                    writeln!(output, "{} {}", char, color).map_err(|e| e.to_string())?;
+                    writeln!(output, "{} {}", char, color)
+                        .map_err(|e| format!("Failed to write palette entry for '{}': {}", glyph.name, e))?;
                 }
+                // Write END PALETTE
+                writeln!(output, "END PALETTE")
+                    .map_err(|e| format!("Failed to write END PALETTE for '{}': {}", glyph.name, e))?;
             }
         }
 
-        if glyph.size.is_some() && !glyph.bitmap.is_empty() {
+        // Write DATA section (if size is defined OR bitmap exists)
+        let has_bitmap_data = !glyph.bitmap.is_empty();
+        let has_size = glyph.size.is_some();
+
+        if has_size || has_bitmap_data { 
+            // Write DATA keyword
+            writeln!(output, "DATA")
+                .map_err(|e| format!("Failed to write DATA for '{}': {}", glyph.name, e))?;
+            
+            // Write Bitmap lines (write what exists)
             for row in &glyph.bitmap {
-                writeln!(output, "{}", row).map_err(|e| e.to_string())?;
+                writeln!(output, "{}", row)
+                    .map_err(|e| format!("Failed to write bitmap line for '{}': {}", glyph.name, e))?;
             }
+            
+            // Write END DATA
+            writeln!(output, "END DATA")
+                 .map_err(|e| format!("Failed to write END DATA for '{}': {}", glyph.name, e))?;
         }
 
-        writeln!(output, "END GLYPH {}", glyph.name).map_err(|e| e.to_string())?;
-        writeln!(output).map_err(|e| e.to_string())?; // Blank line after each glyph block
+        // Write END GLYPH
+        writeln!(output, "END GLYPH {}", glyph.name)
+            .map_err(|e| format!("Failed to write END GLYPH for '{}': {}", glyph.name, e))?;
+        writeln!(output).map_err(|e| format!("Failed to write blank line after glyph '{}': {}", glyph.name, e))?; // Blank line after each glyph block
     }
 
     Ok(output.trim_end().to_string()) // Return the final string, removing trailing newline
