@@ -104,6 +104,14 @@
       <v-col cols="12">
         <h3>Bitmap</h3>
         
+        <!-- NEW: Add Size Controls -->
+        <div class="mb-2">
+          <span class="mr-2 text-caption">Cell Size:</span>
+          <v-btn icon="mdi-minus" size="x-small" @click="decreaseCellSize" :disabled="editorCellSize <= 8"></v-btn>
+          <span class="mx-2">{{ editorCellSize }}px</span>
+          <v-btn icon="mdi-plus" size="x-small" @click="increaseCellSize"></v-btn>
+        </div>
+
         <!-- RE-ADD Outer wrapper div for border and centering -->
         <div 
           v-if="glyphData.size && glyphData.bitmap"
@@ -130,7 +138,7 @@
                   <v-btn 
                     v-bind="tooltipProps" 
                     class="bitmap-cell"
-                    :style="getCellStyle(char)"
+                    :style="[getCellStyle(char), cellDynamicSizeStyle]"
                     icon 
                     variant="flat" 
                     size="x-small" 
@@ -201,6 +209,9 @@ const emit = defineEmits(['update:glyphField']);
 const sizeInput = ref('');
 const sizeError = ref('');
 const isUpdatingFromTextArea = ref(false);
+
+// --- NEW: State for Editor Cell Size ---
+const editorCellSize = ref(24); // Default cell size in pixels
 
 // --- Watcher for the Size Prop to update the local text input --- 
 watch(() => props.glyphData?.size, (newSize) => {
@@ -398,23 +409,30 @@ function isCharValid(char) {
   return validDrawChars.value.includes(char);
 }
 
-// Dynamic grid style based on size
+// Dynamic grid style based on size AND editorCellSize
 const gridStyle = computed(() => {
   if (!props.glyphData || !props.glyphData.size) {
     return {};
   }
   const { width, height } = props.glyphData.size;
-  // Use the size defined in CSS for consistency
-  const cellSize = '24px'; // Match .bitmap-cell min-width/min-height
+  const cellSizePx = `${editorCellSize.value}px`; // Use reactive size
   return {
     display: 'grid',
-    'grid-template-columns': `repeat(${width}, ${cellSize})`,
-    'grid-template-rows': `repeat(${height}, ${cellSize})`,
-    gap: '1px', // Adjust spacing between cells
-    'justify-content': 'start', // Prevent stretching
+    'grid-template-columns': `repeat(${width}, ${cellSizePx})`,
+    'grid-template-rows': `repeat(${height}, ${cellSizePx})`,
+    gap: '1px', // Keep existing gap
+    'justify-content': 'start',
     'align-content': 'start'
   };
 });
+
+// --- NEW: Dynamic Style for Cell Size only ---
+const cellDynamicSizeStyle = computed(() => ({
+  width: `${editorCellSize.value}px`,
+  height: `${editorCellSize.value}px`,
+  minWidth: `${editorCellSize.value}px`,
+  minHeight: `${editorCellSize.value}px`,
+}));
 
 // Helper to get cell background color (always checks palette)
 function getCellStyle(char) {
@@ -548,6 +566,16 @@ function handleBitmapTextUpdate(newBitmapArrayFromSplit) {
   console.log("--- Text Area Update End (Simplified Logic) ---");
 }
 
+// --- NEW: Cell Size Control Functions ---
+function increaseCellSize() {
+  editorCellSize.value += 4; // Increase by 4px
+}
+function decreaseCellSize() {
+  if (editorCellSize.value > 8) { // Prevent going too small
+    editorCellSize.value -= 4; // Decrease by 4px
+  }
+}
+
 </script>
 
 <style scoped>
@@ -584,14 +612,14 @@ pre {
 }
 
 .bitmap-cell {
-  width: 24px; /* Explicit width */
-  height: 24px; /* Explicit height */
-  max-width: 24px; /* Prevent growing wider */
-  max-height: 24px; /* Prevent growing taller */
+  width: 24px; /* Explicit width (will be overridden by inline style)*/
+  height: 24px; /* Explicit height (will be overridden by inline style)*/
+  max-width: 24px; 
+  max-height: 24px;
   min-width: 24px; 
   min-height: 24px;
-  padding: 0 !important; /* Force no padding */
-  border-radius: 0 !important; /* Force square */
+  padding: 0 !important; 
+  border-radius: 0 !important; 
   border: none;
   box-shadow: none !important; 
 }
@@ -599,8 +627,7 @@ pre {
 /* Optional: change cursor */
 .bitmap-cell:hover {
   cursor: pointer; 
-  border: 1px solid #aaa !important; /* Add a light border on hover */
-  /* Alternatively, adjust brightness: filter: brightness(1.1); */
+  border: 1px solid #aaa !important; 
 }
 
 .invalid-char-indicator {
