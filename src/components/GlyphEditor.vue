@@ -35,7 +35,11 @@
             @update:model-value="$emit('update:glyphField', { field: 'unicode', value: $event })"
             placeholder="U+XXXX"
             hint="Format: U+XXXX"
-          ></v-text-field>
+          >
+            <template v-slot:append-inner>
+              <span class="text-caption text-grey">({{ unicodeDecimalValue }})</span>
+            </template>
+          </v-text-field>
           <v-text-field 
             label="Character" 
             :model-value="glyphData.char_repr || ''" 
@@ -212,6 +216,25 @@ const isUpdatingFromTextArea = ref(false);
 
 // --- NEW: State for Editor Cell Size ---
 const editorCellSize = ref(32); // Default cell size in pixels (Changed from 24)
+
+// --- NEW: Computed property for Decimal Unicode ---
+const unicodeDecimalValue = computed(() => {
+  const unicodeStr = props.glyphData?.unicode;
+  if (!unicodeStr || !unicodeStr.startsWith('U+')) {
+    return ''; // Return empty if format is wrong or missing
+  }
+  try {
+    const hexPart = unicodeStr.substring(2);
+    const decimalValue = parseInt(hexPart, 16);
+    // Check if parsing resulted in a valid number
+    if (isNaN(decimalValue)) {
+        return '';
+    }
+    return decimalValue.toString(); // Return decimal value as string
+  } catch (e) {
+    return ''; // Return empty on error
+  }
+});
 
 // --- Watcher for the Size Prop to update the local text input --- 
 watch(() => props.glyphData?.size, (newSize) => {
