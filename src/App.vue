@@ -3,6 +3,7 @@ import { ref, computed, watch } from "vue";
 import HeaderEditor from './components/HeaderEditor.vue';
 import GlyphEditor from './components/GlyphEditor.vue';
 import GlyphPreviewBar from './components/GlyphPreviewBar.vue';
+import GlyphPreview from './components/GlyphPreview.vue';
 import LanguageCheckDialog from './components/LanguageCheckDialog.vue';
 // Import Tauri API functions
 import { invoke } from "@tauri-apps/api/core";
@@ -90,6 +91,74 @@ const sortedGlyphs = computed(() => {
     */
   }); // End of sort
 }); // End of computed
+
+// --- NEW: Computed property for GROUPED glyphs ---
+const groupedGlyphs = computed(() => {
+  if (!gtfData.value || !gtfData.value.glyphs) {
+    return [];
+  }
+
+  // --- Group Definitions & Helper --- 
+  const groups = {
+    Uppercase: [],
+    Lowercase: [],
+    Digits: [],
+    PunctuationSymbols: [], // Basic ASCII Punct/Symbols
+    LanguageSpecific: [],
+    Other: [], // Other assigned unicode points
+    Undefined: [] // Missing or invalid unicode
+  };
+  // Define order
+  const groupOrder = ['Uppercase', 'Lowercase', 'Digits', 'PunctuationSymbols', 'LanguageSpecific', 'Other', 'Undefined'];
+
+  // Helper to check language sets (excluding common chars)
+  const languageChars = Object.values(languageCharacterSets)
+                             .filter(set => set !== allCommon) // Exclude the basic set
+                             .join('')
+                             .replace(new RegExp(`[${allCommon.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}]`, 'g'), ''); // Remove common
+  const languageCharsSet = new Set(languageChars);
+
+  const parseUnicode = (unicodeStr) => {
+    if (!unicodeStr || !unicodeStr.startsWith('U+')) return null;
+    try { return parseInt(unicodeStr.substring(2), 16); } catch (e) { return null; }
+  };
+
+  // --- Categorize Glyphs --- 
+  for (const glyph of sortedGlyphs.value) { // Use already sorted glyphs
+    const codePoint = parseUnicode(glyph.unicode);
+    const char = glyph.char_repr;
+
+    if (codePoint === null) {
+      groups.Undefined.push(glyph);
+    } else if (codePoint >= 0x41 && codePoint <= 0x5A) { // Basic Latin Uppercase
+      groups.Uppercase.push(glyph);
+    } else if (codePoint >= 0x61 && codePoint <= 0x7A) { // Basic Latin Lowercase
+      groups.Lowercase.push(glyph);
+    } else if (codePoint >= 0x30 && codePoint <= 0x39) { // Digits
+      groups.Digits.push(glyph);
+    } else if (
+      (codePoint >= 0x20 && codePoint <= 0x2F) || // Space to /
+      (codePoint >= 0x3A && codePoint <= 0x40) || // : to @
+      (codePoint >= 0x5B && codePoint <= 0x60) || // [ to `
+      (codePoint >= 0x7B && codePoint <= 0x7E)    // { to ~
+    ) {
+      groups.PunctuationSymbols.push(glyph);
+    } else if (char && languageCharsSet.has(char)) { // Check char_repr against specific lang chars
+        groups.LanguageSpecific.push(glyph);
+    } else {
+        // If it has a valid code point but didn't fit above, put in Other
+        // This might include Latin Extended, other symbols etc.
+        groups.Other.push(glyph);
+    }
+  }
+
+  // --- Format Output --- 
+  const result = groupOrder
+    .map(name => ({ name: name.replace(/([A-Z])/g, ' $1').trim(), glyphs: groups[name] })) // Add spaces to name
+    .filter(group => group.glyphs.length > 0); // Only include non-empty groups
+  
+  return result;
+});
 
 // --- Watchers ---
 
@@ -422,10 +491,33 @@ function updateGlyphData({ field, value, action }) {
       //    return; 
       // }
 
+      // --- NEW: Auto-populate char_repr and unicode if name is single char ---
+      if (processedValue.length === 1) {
+          const singleChar = processedValue;
+          console.log(`Name is single char '${singleChar}'. Updating char_repr.`);
+          currentGlyph.char_repr = singleChar;
+
+          // Auto-populate unicode only if it's currently empty
+          if (currentGlyph.unicode === null || currentGlyph.unicode === '') {
+              try {
+                  const codePoint = singleChar.codePointAt(0);
+                  if (codePoint !== undefined) {
+                      const unicodeString = `U+${codePoint.toString(16).toUpperCase().padStart(4, '0')}`;
+                      console.log(`Auto-populating Unicode from name '${singleChar}' with ${unicodeString}`);
+                      currentGlyph.unicode = unicodeString;
+                  }
+              } catch (e) {
+                  console.error("Error getting code point for auto-unicode from name:", e);
+              }
+          }
+      }
+      // --- End auto-populate ---
+
       currentGlyph.name = processedValue;
       // Update the selection ref if the name changed
       selectedGlyphName.value = processedValue;
       console.log(`Updated glyph field 'name':`, currentGlyph.name);
+      console.log("[updateGlyphData] Final glyph data after name update:", JSON.parse(JSON.stringify(currentGlyph)));
       return; // Handled update, return early
 
   } else if (field === 'size') {
@@ -567,7 +659,7 @@ function addSpecificGlyph(char) {
       <!-- Placeholder for more menu/buttons -->
     </v-app-bar>
 
-    <v-navigation-drawer permanent>
+    <v-navigation-drawer permanent theme="dark">
       <v-list density="compact">
          <v-list-item 
            title="Font Header" 
@@ -577,7 +669,7 @@ function addSpecificGlyph(char) {
            prepend-icon="mdi-information-outline"
          ></v-list-item>
          <v-divider></v-divider>
-         <v-list-subheader>GLYPHS ({{ gtfData?.glyphs?.length ?? 0 }})</v-list-subheader>
+         <v-list-subheader>GLYPHS ({{ sortedGlyphs.length }})</v-list-subheader>
          
          <!-- Add/Remove Buttons -->
          <v-list-item v-if="gtfData">
@@ -605,20 +697,38 @@ function addSpecificGlyph(char) {
          </v-list-item>
          <v-divider v-if="gtfData"></v-divider>
 
-         <!-- Iterate over actual glyphs when loaded -->
-         <template v-if="gtfData && gtfData.glyphs">
-           <v-list-item 
-             v-for="glyph in sortedGlyphs" 
-             :key="glyph.name" 
-             :title="glyph.char_repr ? `${glyph.char_repr} (${glyph.name})` : glyph.name" 
-             :active="selectedGlyphName === glyph.name"
-             @click="selectGlyph(glyph.name)"
-             prepend-icon="mdi-format-font"
-           >
-             <!-- Můžete sem případně přidat další obsah položky -->
-           </v-list-item>
-         </template>
-         <v-list-item v-else-if="!gtfData" title="(No file loaded)" disabled></v-list-item>
+         <!-- Container for the glyph GROUPS -->
+         <div class="glyph-group-container pa-1">
+           <!-- Loop over each group -->
+           <template v-for="group in groupedGlyphs" :key="group.name">
+             <v-list-subheader class="group-header">{{ group.name }} ({{ group.glyphs.length }})</v-list-subheader>
+             <!-- Grid for glyphs within this group -->
+             <div class="glyph-card-grid mb-2">
+               <v-card
+                 v-for="glyph in group.glyphs"
+                 :key="glyph.name"
+                 @click="selectGlyph(glyph.name)"
+                 :variant="selectedGlyphName === glyph.name ? 'outlined' : 'flat'"
+                 density="compact"
+                 flat
+                 class="glyph-card"
+                 :title="glyph.char_repr ? glyph.char_repr : glyph.name"
+               >
+                 <div class="d-flex align-center justify-center fill-height">
+                   <GlyphPreview
+                     :glyph="glyph"
+                     :default-palette="processedDefaultPalette"
+                     :target-height="32"
+                     class="list-preview"
+                   />
+                 </div>
+               </v-card>
+             </div>
+           </template>
+           <p v-if="!gtfData" class="text-caption pa-2">(No file loaded)</p>
+           <p v-else-if="groupedGlyphs.length === 0" class="text-caption pa-2">(No glyphs in file)</p>
+         </div>
+         
       </v-list>
     </v-navigation-drawer>
 
@@ -678,7 +788,46 @@ function addSpecificGlyph(char) {
 </template>
 
 <style scoped>
-/* Add some basic styling if needed */
+/* Container for all groups */
+.glyph-group-container {
+  /* Add styling if needed */
+}
+
+/* Style for group headers */
+.group-header {
+  /* Make headers stand out a bit */
+  font-weight: bold;
+  margin-top: 8px;
+  /* background-color: rgba(255, 255, 255, 0.05); */ /* Optional subtle background */
+}
+
+/* Style for the grid container within each group */
+.glyph-card-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px; 
+}
+
+/* Style for the preview inside the card */
+.list-preview {
+  margin: 0 !important;
+  display: block;
+}
+
+/* Style the card itself */
+.glyph-card {
+  cursor: pointer;
+  transition: background-color 0.1s ease-in-out;
+  width: 52px;
+  height: 52px;
+  padding: 2px;
+}
+
+.glyph-card.v-card--variant-outlined {
+    border-color: #1976D2;
+    background-color: rgba(25, 118, 210, 0.1);
+}
+
 </style>
 <style>
 /* Global styles if needed */
