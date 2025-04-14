@@ -213,22 +213,30 @@ function addGlyph() {
   }
   newName = newName + counter;
 
-  // Determine initial size: Use header default or fallback
+  // Determine initial size
   const initialSize = gtfData.value?.header?.default_size 
-                      ? { ...gtfData.value.header.default_size } // Use default if available (copy)
-                      : { width: 5, height: 7 }; // Fallback size
+                      ? { ...gtfData.value.header.default_size } 
+                      : { width: 5, height: 7 }; 
   
-  // Create initial bitmap based on initialSize
+  // Generate initial bitmap based on size
   const initialBitmap = Array(initialSize.height).fill('.'.repeat(initialSize.width));
+
+  // --- Determine initial palette --- 
+  // Use a deep copy of the header's default palette if it exists, otherwise empty.
+  const initialPalette = (gtfData.value?.header?.default_palette?.entries && 
+                         Object.keys(gtfData.value.header.default_palette.entries).length > 0) 
+                      ? { entries: JSON.parse(JSON.stringify(gtfData.value.header.default_palette.entries)) }
+                      : { entries: {} };
+  console.log("Initial palette for new glyph:", initialPalette);
 
   // Create a default glyph structure
   const newGlyph = {
       name: newName,
       unicode: null,
       char_repr: null,
-      size: initialSize, // Use determined initial size
-      palette: { entries: {} }, // Always initialize with empty palette
-      bitmap: initialBitmap, // Use generated initial bitmap
+      size: initialSize, 
+      palette: initialPalette, // Use determined initial palette
+      bitmap: initialBitmap, 
       validation_warnings: null
   };
 
@@ -322,65 +330,94 @@ function updateGlyphData({ field, value, action }) {
     }
   }
 
-  // Handle field updates as before
-  let processedValue = value;
+  // Handle field updates
   if (field === 'char_repr') {
-      // Ensure only the first character is taken, or null if empty
-      processedValue = value.length > 0 ? value.charAt(0) : null;
-      
-      // --- Auto-populate Unicode (if char_repr is valid and unicode is empty) --- 
-      if (processedValue !== null && (currentGlyph.unicode === null || currentGlyph.unicode === '')) {
+      const fullCharValue = value; 
+      console.log(`[updateGlyphData] Received char_repr update: "${fullCharValue}"`); // Log received value
+
+      // --- Auto-populate Unicode --- 
+      console.log(`[updateGlyphData] Checking auto-populate. Current unicode: "${currentGlyph.unicode}"`); // Log current unicode
+      const canAutoPopulate = fullCharValue && fullCharValue.length > 0 && (currentGlyph.unicode === null || currentGlyph.unicode === '');
+      console.log(`[updateGlyphData] Can auto-populate unicode? ${canAutoPopulate}`); // Log condition result
+
+      if (canAutoPopulate) {
           try {
-              const codePoint = processedValue.codePointAt(0);
+              const codePoint = fullCharValue.codePointAt(0);
               if (codePoint !== undefined) {
                   const unicodeString = `U+${codePoint.toString(16).toUpperCase().padStart(4, '0')}`;
-                  console.log(`Auto-populating Unicode for '${processedValue}' with ${unicodeString}`);
-                  // Directly update the unicode field in the data object
+                  console.log(`[updateGlyphData] Calculated unicode: ${unicodeString}`); // Log calculated value
                   currentGlyph.unicode = unicodeString; 
+                  console.log(`[updateGlyphData] Assigned unicode to data: ${currentGlyph.unicode}`); // Log after assignment
+              } else {
+                  console.log('[updateGlyphData] codePointAt(0) returned undefined.');
               }
           } catch (e) {
-              console.error("Error getting code point for auto-unicode:", e);
+              console.error("[updateGlyphData] Error getting code point:", e);
           }
       }
       // --- End Auto-populate Unicode ---
 
-  } else if (field === 'unicode' || field === 'name') {
-      // For optional string fields like unicode, or required like name, set to null if empty string is entered
-      processedValue = value.trim() === '' ? null : value;
-      // Special handling for name: if name changes, update selectedGlyphName
-      if (field === 'name' && processedValue !== null) {
-         // Important: Need validation here to prevent duplicate names!
-         selectedGlyphName.value = processedValue;
-      } else if (field === 'name' && processedValue === null) {
+      currentGlyph.char_repr = fullCharValue.length > 0 ? fullCharValue : null;
+      console.log(`[updateGlyphData] Assigned char_repr to data: "${currentGlyph.char_repr}"`);
+      console.log("[updateGlyphData] Final glyph data after char_repr update:", JSON.parse(JSON.stringify(currentGlyph))); // Log final state
+      return; 
+
+  } else if (field === 'unicode') {
+      // For optional string fields like unicode, set to null if empty string is entered
+      currentGlyph.unicode = value.trim() === '' ? null : value;
+      console.log(`Updated glyph field 'unicode':`, currentGlyph.unicode);
+      return; // Handled update, return early
+      
+  } else if (field === 'name') {
+      const processedValue = value.trim() === '' ? null : value;
+      if (processedValue === null) {
           console.error("Glyph name cannot be empty.");
           return; // Don't update if name is empty
       }
+      // TODO: Add validation here to prevent duplicate names before assigning!
+      // Example (needs refinement):
+      // const existingNames = new Set(gtfData.value.glyphs.filter(g => g !== currentGlyph).map(g => g.name));
+      // if (existingNames.has(processedValue)) {
+      //    console.error(`Glyph name "${processedValue}" already exists.`);
+      //    // Maybe set an error state for the UI?
+      //    return; 
+      // }
+
+      currentGlyph.name = processedValue;
+      // Update the selection ref if the name changed
+      selectedGlyphName.value = processedValue;
+      console.log(`Updated glyph field 'name':`, currentGlyph.name);
+      return; // Handled update, return early
+
   } else if (field === 'size') {
-     processedValue = value; 
+     currentGlyph.size = value; // Value should be { width, height } or null
+     console.log(`Updated glyph field 'size':`, currentGlyph.size);
+     return; // Handled update, return early
+
   } else if (field === 'palette') {
     // Handles updates from add/remove palette entries
-    processedValue = value && typeof value === 'object' ? value : { entries: {} }; 
-    currentGlyph.palette = processedValue; 
-    console.log(`Updated glyph field '${field}':`, currentGlyph);
-    return; // Return early as we modified directly
+    const processedValue = value && typeof value === 'object' ? value : { entries: {} };
+    currentGlyph.palette = processedValue;
+    console.log(`Updated glyph field 'palette':`, currentGlyph.palette);
+    return; // Handled update, return early
+
   } else if (field === 'bitmap') {
      if (Array.isArray(value)) {
-       processedValue = value;
+       currentGlyph.bitmap = value;
+       console.log(`Updated glyph field 'bitmap':`, currentGlyph.bitmap);
      } else {
        console.error("Invalid value received for bitmap update, expected array.");
-       return; 
      }
+     return; // Handled update, return early
   }
-  
-  // Update the specific field that triggered the event (if not handled above)
+
+  // Fallback for any other fields (shouldn't normally happen with current structure)
   if (field in currentGlyph) {
-      currentGlyph[field] = processedValue;
-      console.log(`Updated glyph field '${field}':`, currentGlyph);
+      console.warn(`Updating unhandled field '${field}' generically.`);
+      currentGlyph[field] = value; 
   } else {
       console.error(`Attempted to update unknown field '${field}' on glyph.`);
   }
-
-  // ... (Potential reactivity updates if needed)
 }
 
 // Function to add a glyph for a specific character
@@ -422,12 +459,18 @@ function addSpecificGlyph(char) {
   
   const initialBitmap = Array(initialSize.height).fill('.'.repeat(initialSize.width));
 
+  // --- Determine initial palette (Consistent with addGlyph) ---
+  const initialPalette = (gtfData.value?.header?.default_palette?.entries && 
+                         Object.keys(gtfData.value.header.default_palette.entries).length > 0) 
+                      ? { entries: JSON.parse(JSON.stringify(gtfData.value.header.default_palette.entries)) }
+                      : { entries: {} };
+
   const newGlyph = {
       name: newName,
       unicode: unicodeString,
       char_repr: char,
       size: initialSize, 
-      palette: { entries: {} }, 
+      palette: initialPalette, // Use determined initial palette
       bitmap: initialBitmap,
       validation_warnings: null
   };

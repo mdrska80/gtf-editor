@@ -39,9 +39,8 @@
           <v-text-field 
             label="Character" 
             :model-value="glyphData.char_repr || ''" 
-            @update:model-value="$emit('update:glyphField', { field: 'char_repr', value: $event })"
+            @update:model-value="handleCharReprInput"
             placeholder="Single character"
-            maxlength="1" 
             counter
           ></v-text-field>
           <v-text-field 
@@ -218,6 +217,12 @@ watch(() => props.glyphData?.size, (newSize) => {
   }
 }, { deep: true, immediate: true }); // immediate: true to set initial value, deep: true for object changes
 
+// --- NEW METHOD to log and emit char_repr updates ---
+function handleCharReprInput(newValue) {
+  console.log('GlyphEditor: handleCharReprInput received:', JSON.stringify(newValue)); // Log the exact value
+  emit('update:glyphField', { field: 'char_repr', value: newValue });
+}
+
 // Validate and emit size changes *from the text input*
 function handleSizeChange() {
   sizeError.value = ''; // Clear previous error
@@ -278,12 +283,28 @@ const currentCharToDraw = ref('.'); // Character being used in the current draw 
 // Watch palette changes to keep selectedDrawChar valid
 watch(() => props.palette, (newPalette) => {
     console.log("Palette prop changed, updating selectedDrawChar if needed.");
-    // If the current selection is no longer valid or palette is empty
-    if (!newPalette.some(p => p.char === selectedDrawChar.value)) {
-        // Select the first char from the new palette, or '.' if empty
-        selectedDrawChar.value = newPalette.length > 0 ? newPalette[0].char : '.';
-        console.log(`Resetting selectedDrawChar to: ${selectedDrawChar.value}`);
+    
+    // Determine the preferred default character
+    let preferredChar = '.'; // Default if palette is empty or '#' not found
+    if (newPalette && newPalette.some(p => p.char === '#')) {
+      preferredChar = '#'; // Use '#' if it exists in the palette
     }
+    else if (newPalette && newPalette.length > 0) {
+      preferredChar = newPalette[0].char; // Fallback to the first char if '#' is not present
+    }
+    console.log(`Preferred draw char based on palette: ${preferredChar}`);
+
+    // Check if the current selection is still valid in the new palette
+    const currentSelectionValid = newPalette && newPalette.some(p => p.char === selectedDrawChar.value);
+
+    // Update selectedDrawChar only if it's invalid OR if the preferred char exists and isn't already selected
+    if (!currentSelectionValid || (preferredChar !== '.' && selectedDrawChar.value !== preferredChar)) {
+        selectedDrawChar.value = preferredChar;
+        console.log(`Updating selectedDrawChar to: ${selectedDrawChar.value}`);
+    } else {
+        console.log(`Keeping current selectedDrawChar: ${selectedDrawChar.value}`);
+    }
+
     // Reset erase char to '.' for simplicity
     selectedEraseChar.value = '.'; 
      if (!isDrawing.value) {
@@ -578,6 +599,8 @@ pre {
 /* Optional: change cursor */
 .bitmap-cell:hover {
   cursor: pointer; 
+  border: 1px solid #aaa !important; /* Add a light border on hover */
+  /* Alternatively, adjust brightness: filter: brightness(1.1); */
 }
 
 .invalid-char-indicator {

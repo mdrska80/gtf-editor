@@ -2,7 +2,8 @@
   <div class="preview-bar-container">
     <v-sheet 
         class="mx-auto pa-1"
-        elevation="1"
+        elevation="0"
+        color="transparent"
         max-width="100%"
     >
         <v-slide-group 
@@ -59,9 +60,9 @@ function selectGlyph(glyphName) {
 <style scoped>
 .preview-bar-container {
     width: 100%;
-    background-color: #f5f5f5; /* Light background for the bar area */
+    background-color: #000000; /* Set background to black */
     padding: 4px 0;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid #444; /* Darken border slightly */
 }
 
 /* Optional: Style the selected preview */

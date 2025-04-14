@@ -35,7 +35,7 @@ const props = defineProps({
   },
   targetHeight: {
       type: Number,
-      default: 32 // Target height in pixels for the preview
+      default: 64 // Target height in pixels for the preview (Increased from 32)
   }
 });
 
@@ -58,20 +58,17 @@ const containerStyle = computed(() => {
     const height = props.glyph.size?.height || 1;
     const aspectRatio = width / height;
     
-    // Calculate width based on target height and aspect ratio
-    const calculatedWidth = Math.max(width, Math.round(props.targetHeight * aspectRatio)); // Ensure min width based on columns
+    const calculatedWidth = Math.max(width, Math.round(props.targetHeight * aspectRatio)); 
     
     return {
-        width: `${calculatedWidth}px`, // Set width based on aspect ratio
-        height: `${props.targetHeight}px`, // Set height directly to target
+        width: `${calculatedWidth}px`, 
+        height: `${props.targetHeight}px`, 
         display: 'grid',
-        // Use fractional units for grid tracks
         gridTemplateColumns: `repeat(${width}, 1fr)`,
         gridTemplateRows: `repeat(${height}, 1fr)`,
-        border: '1px solid #ccc',
         cursor: 'pointer',
         margin: '2px',
-        backgroundColor: '#f8f8f8'
+        backgroundColor: 'transparent'
     };
 });
 
