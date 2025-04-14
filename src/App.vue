@@ -18,6 +18,9 @@ const selectedGlyphName = ref(null); // Holds the name of the selected glyph
 const currentFilePath = ref(null); // Holds the path of the currently open file
 const languageDialogVisible = ref(false); // State for dialog visibility
 
+// --- NEW: State for sidebar view mode ---
+const isSimplePreviewMode = ref(false); // false = grouped list, true = simple preview grid
+
 // --- Character Sets Data ---
 // Define common character sets
 const commonLowercase = 'abcdefghijklmnopqrstuvwxyz';
@@ -564,11 +567,12 @@ function addSpecificGlyph(char) {
       return;
   }
 
-  // Generate name (simple for now)
-  let baseName = `Glyph_${char}`;
+  // Generate name: Use the character itself as the base name
+  let baseName = String(char); // Use the character
   let newName = baseName;
   let counter = 1;
   const existingNames = new Set(gtfData.value.glyphs.map(g => g.name));
+  // Ensure the name is unique
   while (existingNames.has(newName)) {
       newName = `${baseName}_${counter}`;
       counter++;
@@ -590,34 +594,39 @@ function addSpecificGlyph(char) {
   
   const initialBitmap = Array(initialSize.height).fill('.'.repeat(initialSize.width));
 
-  // --- Determine initial palette (Consistent with addGlyph) ---
+  // Determine initial palette
   const initialPalette = (gtfData.value?.header?.default_palette?.entries && 
                          Object.keys(gtfData.value.header.default_palette.entries).length > 0) 
                       ? { entries: JSON.parse(JSON.stringify(gtfData.value.header.default_palette.entries)) }
                       : { entries: {} };
 
   const newGlyph = {
-      name: newName,
+      name: newName, // Use the new unique name (char or char_counter)
       unicode: unicodeString,
       char_repr: char,
       size: initialSize, 
-      palette: initialPalette, // Use determined initial palette
+      palette: initialPalette, 
       bitmap: initialBitmap,
       validation_warnings: null
   };
 
   gtfData.value.glyphs.push(newGlyph);
-  console.log(`Added specific glyph '${newName}' for character '${char}'`);
+  console.log(`Added specific glyph '${newName}' for character '${char}' with data:`, JSON.parse(JSON.stringify(newGlyph))); // Log added glyph data
 
   // Select the new glyph
   selectGlyph(newName);
-  languageDialogVisible.value = false; // Close dialog after adding
+  languageDialogVisible.value = false; 
 }
 
 // Placeholder for the currently selected glyph ID/name
 // const selectedGlyph = ref(null);
 
 // TODO: Function to change view based on selected glyph
+
+// --- NEW: Method to toggle sidebar view ---
+function toggleSidebarView() {
+  isSimplePreviewMode.value = !isSimplePreviewMode.value;
+}
 </script>
 
 <template>
@@ -668,6 +677,15 @@ function addSpecificGlyph(char) {
            :disabled="!gtfData"
            prepend-icon="mdi-information-outline"
          ></v-list-item>
+
+         <!-- NEW: View Toggle Button -->
+         <v-list-item @click="toggleSidebarView">
+           <template v-slot:prepend>
+              <v-icon :icon="isSimplePreviewMode ? 'mdi-view-list' : 'mdi-view-grid'"></v-icon>
+           </template>
+           <v-list-item-title>{{ isSimplePreviewMode ? 'Show Grouped List' : 'Show Preview Grid' }}</v-list-item-title>
+         </v-list-item>
+
          <v-divider></v-divider>
          <v-list-subheader>GLYPHS ({{ sortedGlyphs.length }})</v-list-subheader>
          
@@ -697,28 +715,31 @@ function addSpecificGlyph(char) {
          </v-list-item>
          <v-divider v-if="gtfData"></v-divider>
 
-         <!-- Container for the glyph GROUPS -->
-         <div class="glyph-group-container pa-1">
+         <!-- === CONDITIONAL SIDEBAR CONTENT === -->
+
+         <!-- View 1: Grouped List with Cards (Existing) -->
+         <div v-if="!isSimplePreviewMode" class="glyph-group-container pa-1">
            <!-- Loop over each group -->
            <template v-for="group in groupedGlyphs" :key="group.name">
              <v-list-subheader class="group-header">{{ group.name }} ({{ group.glyphs.length }})</v-list-subheader>
              <!-- Grid for glyphs within this group -->
              <div class="glyph-card-grid mb-2">
-               <v-card
-                 v-for="glyph in group.glyphs"
-                 :key="glyph.name"
-                 @click="selectGlyph(glyph.name)"
+               <!-- Existing v-card loop -->
+               <v-card 
+                 v-for="glyph in group.glyphs" 
+                 :key="glyph.name" 
+                 @click="selectGlyph(glyph.name)" 
                  :variant="selectedGlyphName === glyph.name ? 'outlined' : 'flat'"
-                 density="compact"
-                 flat
-                 class="glyph-card"
+                 density="compact" 
+                 flat 
+                 class="glyph-card" 
                  :title="glyph.char_repr ? glyph.char_repr : glyph.name"
                >
                  <div class="d-flex align-center justify-center fill-height">
-                   <GlyphPreview
-                     :glyph="glyph"
-                     :default-palette="processedDefaultPalette"
-                     :target-height="32"
+                   <GlyphPreview 
+                     :glyph="glyph" 
+                     :default-palette="processedDefaultPalette" 
+                     :target-height="32" 
                      class="list-preview"
                    />
                  </div>
@@ -727,6 +748,34 @@ function addSpecificGlyph(char) {
            </template>
            <p v-if="!gtfData" class="text-caption pa-2">(No file loaded)</p>
            <p v-else-if="groupedGlyphs.length === 0" class="text-caption pa-2">(No glyphs in file)</p>
+         </div>
+
+         <!-- View 2: Simple Preview Grid (New - Now Grouped) -->
+         <div v-else class="pa-1"> <!-- Removed simple-preview-grid class from outer div -->
+            <!-- Loop over groups -->
+            <template v-for="group in groupedGlyphs" :key="group.name + '-simple'">
+              <v-list-subheader class="group-header">{{ group.name }} ({{ group.glyphs.length }})</v-list-subheader>
+              <!-- Grid container for previews WITHIN this group -->
+              <div class="simple-preview-grid mb-2"> 
+                <div
+                  v-for="glyph in group.glyphs" 
+                  :key="glyph.name + '-preview'" 
+                  class="simple-preview-item"
+                  :class="{ 'selected': selectedGlyphName === glyph.name }"
+                  @click="selectGlyph(glyph.name)"
+                  :title="glyph.char_repr ? glyph.char_repr : glyph.name"
+                >
+                    <GlyphPreview
+                        :glyph="glyph"
+                        :default-palette="processedDefaultPalette"
+                        :target-height="36" 
+                        class="list-preview"
+                    />
+                </div>
+              </div>
+            </template>
+            <p v-if="!gtfData" class="text-caption pa-2">(No file loaded)</p>
+            <p v-else-if="groupedGlyphs.length === 0" class="text-caption pa-2">(No glyphs in file)</p>
          </div>
          
       </v-list>
@@ -826,6 +875,32 @@ function addSpecificGlyph(char) {
 .glyph-card.v-card--variant-outlined {
     border-color: #1976D2;
     background-color: rgba(25, 118, 210, 0.1);
+}
+
+/* --- Styles for Simple Preview Grid View --- */
+
+/* Container for previews WITHIN a group */
+.simple-preview-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px; 
+}
+
+.simple-preview-item {
+  cursor: pointer;
+  padding: 2px;
+  border: 1px solid transparent; /* Placeholder for selection border */
+  transition: border-color 0.1s ease-in-out;
+}
+
+.simple-preview-item.selected {
+  border-color: #1976D2; /* Primary blue border */
+  background-color: rgba(25, 118, 210, 0.1);
+}
+
+.simple-preview-item .list-preview {
+  display: block;
+  margin: 0 !important;
 }
 
 </style>
