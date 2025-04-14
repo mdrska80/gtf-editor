@@ -211,7 +211,7 @@ const sizeError = ref('');
 const isUpdatingFromTextArea = ref(false);
 
 // --- NEW: State for Editor Cell Size ---
-const editorCellSize = ref(24); // Default cell size in pixels
+const editorCellSize = ref(32); // Default cell size in pixels (Changed from 24)
 
 // --- Watcher for the Size Prop to update the local text input --- 
 watch(() => props.glyphData?.size, (newSize) => {
