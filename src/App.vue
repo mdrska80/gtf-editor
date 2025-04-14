@@ -52,6 +52,45 @@ const processedDefaultPalette = computed(() => {
            : [];
 });
 
+// --- NEW: Computed property for sorted glyphs ---
+const sortedGlyphs = computed(() => {
+  if (!gtfData.value || !gtfData.value.glyphs) {
+    return [];
+  }
+
+  // Helper function to parse Unicode string (U+XXXX) to number, returns Infinity for invalid/null
+  const parseUnicode = (unicodeStr) => {
+    if (!unicodeStr || !unicodeStr.startsWith('U+')) {
+      return Infinity; // Treat invalid/missing as largest value to sort to end
+    }
+    try {
+      // Use base 16 for hexadecimal parsing
+      return parseInt(unicodeStr.substring(2), 16); 
+    } catch (e) {
+      console.warn(`Error parsing unicode: ${unicodeStr}`, e);
+      return Infinity; // Treat parsing errors as largest value
+    }
+  };
+
+  // Create a copy to avoid sorting the original array directly
+  return [...gtfData.value.glyphs].sort((a, b) => {
+    const codePointA = parseUnicode(a.unicode);
+    const codePointB = parseUnicode(b.unicode);
+
+    // Simple numerical comparison (Infinity will automatically go to the end)
+    return codePointA - codePointB;
+
+    /* // Old sorting by char_repr:
+    const charA = a.char_repr;
+    const charB = b.char_repr;
+    if (!charA && charB) return 1;
+    if (charA && !charB) return -1;
+    if (!charA && !charB) return 0;
+    return String(charA).localeCompare(String(charB));
+    */
+  }); // End of sort
+}); // End of computed
+
 // --- Watchers ---
 
 // Removed window title watcher
@@ -569,7 +608,7 @@ function addSpecificGlyph(char) {
          <!-- Iterate over actual glyphs when loaded -->
          <template v-if="gtfData && gtfData.glyphs">
            <v-list-item 
-             v-for="glyph in gtfData.glyphs" 
+             v-for="glyph in sortedGlyphs" 
              :key="glyph.name" 
              :title="glyph.char_repr ? `${glyph.char_repr} (${glyph.name})` : glyph.name" 
              :active="selectedGlyphName === glyph.name"
@@ -587,7 +626,7 @@ function addSpecificGlyph(char) {
       <!-- Place Glyph Preview Bar INSIDE v-main -->
       <GlyphPreviewBar 
         v-if="gtfData && gtfData.glyphs && gtfData.glyphs.length > 0"
-        :glyphs="gtfData.glyphs"
+        :glyphs="sortedGlyphs"
         :default-palette="processedDefaultPalette"
         :selected-glyph-name="selectedGlyphName"
         @select-glyph="selectGlyph"
