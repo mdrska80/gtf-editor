@@ -664,14 +664,12 @@ function toggleSidebarView() {
         @click="languageDialogVisible = true"
         :disabled="!gtfData"
        >
-        Language Check
       </v-btn>
       <v-btn 
         :prepend-icon="isDarkMode ? 'mdi-weather-sunny' : 'mdi-weather-night'"
         @click="isDarkMode = !isDarkMode"
         :title="isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
       >
-        {{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}
       </v-btn>
     </v-app-bar>
 
