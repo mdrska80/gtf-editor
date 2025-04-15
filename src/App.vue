@@ -19,7 +19,7 @@ const currentFilePath = ref(null); // Holds the path of the currently open file
 const languageDialogVisible = ref(false); // State for dialog visibility
 
 // --- NEW: State for sidebar view mode ---
-const isSimplePreviewMode = ref(false); // false = grouped list, true = simple preview grid
+const isSimplePreviewMode = ref(true); // false = grouped list, true = simple preview grid
 
 // --- Character Sets Data ---
 // Define common character sets
