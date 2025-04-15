@@ -21,45 +21,10 @@
     </v-alert>
 
     <v-row>
-      <v-col cols="12" md="6">
-        <h3>Metadata</h3>
-        <v-form @submit.prevent>
-          <v-text-field 
-            label="Glyph Name" 
-            :model-value="glyphData.name" 
-            @update:model-value="$emit('update:glyphField', { field: 'name', value: $event })"
-          ></v-text-field>
-
-          <v-text-field 
-            label="Unicode" 
-            :model-value="glyphData.unicode || ''" 
-            @update:model-value="$emit('update:glyphField', { field: 'unicode', value: $event })"
-            placeholder="U+XXXX"
-            hint="Format: U+XXXX" >
-            <template v-slot:append-inner>
-              <span class="text-caption text-grey">(ALT+{{ unicodeDecimalValue }})</span>
-            </template>
-          </v-text-field>
-
-          <v-text-field 
-            label="Character" 
-            :model-value="glyphData.char_repr || ''" 
-            @update:model-value="handleCharReprInput"
-            placeholder="Single character"
-            counter
-          ></v-text-field>
-
-          <v-text-field 
-            label="Size (WxH)" 
-            v-model="sizeInput" 
-            @change="handleSizeChange" 
-            :error-messages="sizeError" 
-            placeholder="e.g., 5x7"
-            hint="Enter width x height"
-          ></v-text-field>
-
-        </v-form>
-      </v-col>
+      <GlyphMetadataEditor 
+        :glyph-data="glyphData"
+        @update:glyphField="$emit('update:glyphField', $event)"
+      />
 
       <v-col cols="12" md="6">
         <h3>Palette</h3>
@@ -189,9 +154,10 @@
 
 <script setup>
 import { defineProps, ref, watch, defineEmits, computed, nextTick } from 'vue';
-import PaletteEditor from './PaletteEditor.vue'; // Import the new component
-import BitmapTextView from './BitmapTextView.vue'; // <-- IMPORT the new component
-import GlyphTextView from './GlyphTextView.vue';   // <-- IMPORT the newest component
+import PaletteEditor from './PaletteEditor.vue';
+import BitmapTextView from './BitmapTextView.vue';
+import GlyphTextView from './GlyphTextView.vue';
+import GlyphMetadataEditor from './GlyphMetadataEditor.vue'; // Import the new component
 
 // Define the expected props
 const props = defineProps({
