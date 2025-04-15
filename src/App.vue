@@ -17,6 +17,7 @@ const currentError = ref(null); // Holds error messages
 const selectedGlyphName = ref(null); // Holds the name of the selected glyph
 const currentFilePath = ref(null); // Holds the path of the currently open file
 const languageDialogVisible = ref(false); // State for dialog visibility
+const isDarkMode = ref(true); // Theme state
 
 // --- NEW: State for sidebar view mode ---
 const isSimplePreviewMode = ref(true); // false = grouped list, true = simple preview grid
@@ -630,8 +631,8 @@ function toggleSidebarView() {
 </script>
 
 <template>
-  <v-app id="inspire">
-    <v-app-bar theme="dark">
+  <v-app id="inspire" :theme="isDarkMode ? 'dark' : 'light'">
+    <v-app-bar :theme="isDarkMode ? 'dark' : 'light'">
       <v-app-bar-title>
         GTF Editor 
         {{ gtfData?.header?.font_name ? `- ${gtfData.header.font_name}` : '' }}
@@ -665,10 +666,16 @@ function toggleSidebarView() {
        >
         Language Check
       </v-btn>
-      <!-- Placeholder for more menu/buttons -->
+      <v-btn 
+        :prepend-icon="isDarkMode ? 'mdi-weather-sunny' : 'mdi-weather-night'"
+        @click="isDarkMode = !isDarkMode"
+        :title="isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+      >
+        {{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}
+      </v-btn>
     </v-app-bar>
 
-    <v-navigation-drawer permanent theme="dark">
+    <v-navigation-drawer permanent :theme="isDarkMode ? 'dark' : 'light'">
       <v-list density="compact">
          <v-list-item 
            title="Font Header" 
