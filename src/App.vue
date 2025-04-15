@@ -631,7 +631,7 @@ function toggleSidebarView() {
 
 <template>
   <v-app id="inspire">
-    <v-app-bar>
+    <v-app-bar theme="dark">
       <v-app-bar-title>
         GTF Editor 
         {{ gtfData?.header?.font_name ? `- ${gtfData.header.font_name}` : '' }}
