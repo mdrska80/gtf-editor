@@ -6,7 +6,7 @@
       ref="bitmapTextAreaRef"
       :value="formattedBitmap"
       @input="handleInput"
-      rows="10" 
+      rows="15" 
       class="editable-bitmap-area"
     ></textarea>
     <p v-else>(No bitmap data)</p>
@@ -66,26 +66,28 @@ function handleInput(event) {
 .bitmap-text-view {
   margin-top: 15px;
   padding: 10px;
-  border: 1px solid #ccc;
+  border: 1px solid rgb(var(--v-border-color));
   border-radius: 4px;
-  background-color: #f9f9f9;
+  background-color: rgb(var(--v-theme-surface));
 }
 
 /* Style the textarea */
 .editable-bitmap-area {
   width: 100%; 
-  background-color: #eee;
+  background-color: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface));
   padding: 10px;
-  border: 1px solid #ddd;
+  border: 0px solid rgb(var(--v-border-color));
   border-radius: 4px;
   font-family: monospace;
   white-space: pre; 
   overflow-x: auto;
-  box-sizing: border-box; /* Include padding and border in the element's total width and height */
-  resize: vertical; /* Allow vertical resize */
+  box-sizing: border-box;
+  resize: vertical;
 }
 
 h4 {
     margin-bottom: 8px;
+    color: rgb(var(--v-theme-on-surface));
 }
 </style> 

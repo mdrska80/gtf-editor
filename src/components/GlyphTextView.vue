@@ -76,21 +76,23 @@ const formattedGlyphText = computed(() => {
 .glyph-text-view {
   margin-top: 15px;
   padding: 10px;
-  border: 1px solid #ccc;
+  border: 1px solid rgb(var(--v-border-color));
   border-radius: 4px;
-  background-color: #f0f0f0; /* Slightly different background */
+  background-color: rgb(var(--v-theme-surface));
 }
 
 pre {
-  background-color: #e0e0e0; /* Different background for pre */
+  background-color: rgb(var(--v-theme-surface));
   padding: 10px;
   border-radius: 4px;
   font-family: monospace;
   white-space: pre;
   overflow-x: auto;
+  color: rgb(var(--v-theme-on-surface));
 }
 
 h4 {
     margin-bottom: 8px;
+    color: rgb(var(--v-theme-on-surface));
 }
 </style> 
