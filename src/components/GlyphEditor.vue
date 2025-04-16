@@ -1,6 +1,9 @@
 <template>
   <v-container v-if="glyphData">
-    <h2>Glyph Editor: {{ glyphData.name }}</h2>
+
+    <!--
+    <h1>{{ glyphData.name }}</h1>
+    -->
 
     <!-- Display Validation Warnings -->
     <v-alert
@@ -142,7 +145,7 @@ const sizeError = ref('');
 const isUpdatingFromTextArea = ref(false);
 
 // --- NEW: State for Editor Cell Size ---
-const editorCellSize = ref(32); // Default cell size in pixels (Changed from 24)
+const editorCellSize = ref(48); // Default cell size in pixels (Changed from 24)
 
 // --- NEW: Computed property for Decimal Unicode ---
 const unicodeDecimalValue = computed(() => {

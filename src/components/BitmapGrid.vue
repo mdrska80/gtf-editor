@@ -84,7 +84,7 @@ const props = defineProps({
 const emit = defineEmits(['update:bitmap']);
 
 // Cell size state
-const editorCellSize = ref(32);
+const editorCellSize = ref(48);
 const hoveredX = ref(null);
 const hoveredY = ref(null);
 

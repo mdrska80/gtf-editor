@@ -664,6 +664,8 @@ function toggleSidebarView() {
 
     <v-main>
       <!-- Place Glyph Preview Bar INSIDE v-main -->
+
+      <!--
       <GlyphPreviewBar 
         v-if="gtfData && gtfData.glyphs && gtfData.glyphs.length > 0"
         :glyphs="sortedGlyphs"
@@ -671,6 +673,7 @@ function toggleSidebarView() {
         :selected-glyph-name="selectedGlyphName"
         @select-glyph="selectGlyph"
       />
+      -->
 
       <!-- Display Error if any -->
       <v-container v-if="currentError">
