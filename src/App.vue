@@ -5,10 +5,11 @@ import GlyphEditor from './components/GlyphEditor.vue';
 import GlyphPreviewBar from './components/GlyphPreviewBar.vue';
 import GlyphPreview from './components/GlyphPreview.vue';
 import LanguageCheckDialog from './components/LanguageCheckDialog.vue';
+import FileOperations from './components/FileOperations.vue';
 // Import Tauri API functions
-import { invoke } from "@tauri-apps/api/core";
+// import { invoke } from "@tauri-apps/api/core";
 // Import from the specific dialog plugin
-import { open, save } from "@tauri-apps/plugin-dialog";
+// import { open, save } from "@tauri-apps/plugin-dialog";
 // import { BaseDirectory, readTextFile } from '@tauri-apps/api/fs'; // Remove unused fs import for now
 
 const currentView = ref(null); // Possible values: null, 'header', 'glyph'
@@ -170,123 +171,6 @@ const groupedGlyphs = computed(() => {
 // watch(currentFilePath, ...) 
 
 // --- Functions ---
-
-async function openFile() {
-  currentError.value = null; // Clear previous errors
-  gtfData.value = null; // Clear previous data
-  selectedGlyphName.value = null;
-  currentView.value = null;
-  currentFilePath.value = null; // Reset file path
-  try {
-    const selectedPath = await open({
-      multiple: false,
-      filters: [
-        {
-          name: 'Glyph Text Format',
-          extensions: ['gtf']
-        }
-      ]
-    });
-
-    if (selectedPath && typeof selectedPath === 'string') {
-      console.log("Selected file:", selectedPath);
-      // Call the Rust command to load and parse the file
-      const document = await invoke('load_gtf_file', { path: selectedPath });
-      console.log("Parsed document:", document);
-      gtfData.value = document; // Store the parsed data
-      currentFilePath.value = selectedPath; // Store the path
-      currentView.value = 'header'; // Show header editor after loading
-      selectedGlyphName.value = null; // Ensure no glyph is selected initially
-    } else {
-      console.log("File selection cancelled.");
-    }
-  } catch (error) {
-    const errorString = String(error); // Ensure error is a string
-    console.error("Error loading or parsing file:", errorString);
-    
-    // Check for the specific known inconsistency error
-    if (errorString.includes('more bitmap lines than expected')) {
-      console.warn("Known inconsistency: Parser found mismatched bitmap lines vs SIZE. Allowing edit to continue.");
-      currentError.value = `Warning: File loaded with known inconsistency (bitmap lines vs SIZE). Please review glyph definitions.`;
-      // Keep potentially partially loaded data and view
-      // gtfData.value = ???; // Maybe keep data if backend sends partial?
-      // currentView.value = 'header'; // Allow user to inspect
-    } else {
-      // Handle other unexpected errors as before
-      currentError.value = `Error: ${errorString}`;
-      gtfData.value = null; // Clear data on unexpected error
-      currentView.value = null;
-      selectedGlyphName.value = null;
-      currentFilePath.value = null; // Clear path on unexpected error
-      alert(`Failed to load file: ${errorString}`); // Show alert for unexpected errors
-    }
-  }
-}
-
-async function saveFileAs() {
-  if (!gtfData.value) {
-    alert("No data to save. Please open a file first.");
-    return;
-  }
-  currentError.value = null;
-  try {
-    const savePath = await save({
-      filters: [
-        {
-          name: 'Glyph Text Format',
-          extensions: ['gtf']
-        }
-      ],
-      // Suggest a filename based on the font name if available
-      defaultPath: gtfData.value?.header?.font_name ? `${gtfData.value.header.font_name}.gtf` : 'untitled.gtf'
-    });
-
-    if (savePath) {
-      console.log("Saving to file:", savePath);
-      // Call the Rust command to serialize and save the file
-      await invoke('save_gtf_file', { 
-        path: savePath, 
-        document: gtfData.value // Pass the current data
-      });
-      console.log("File saved successfully.");
-      currentFilePath.value = savePath; // Store the path after successful save
-      alert("File saved successfully!");
-    } else {
-      console.log("File saving cancelled.");
-    }
-
-  } catch (error) {
-    console.error("Error saving file:", error);
-    currentError.value = `Error saving file: ${error}`;
-    alert(`Failed to save file: ${error}`);
-  }
-}
-
-// Function to save the file to its current path
-async function saveFile() {
-  if (!gtfData.value || !currentFilePath.value) {
-    console.warn("Save attempted but no data or file path is available.");
-    // Optionally call saveFileAs if no path exists?
-    // if (!currentFilePath.value && gtfData.value) saveFileAs();
-    return;
-  }
-  currentError.value = null;
-  console.log(`Saving to current path: ${currentFilePath.value}`);
-  try {
-      await invoke('save_gtf_file', { 
-        path: currentFilePath.value, // Use the stored path
-        document: gtfData.value // Pass the current data
-      });
-      console.log("File saved successfully (overwrite).");
-      // Add subtle feedback, e.g., a temporary message or status bar update
-      // For now, maybe just a brief console log
-      // alert("File saved."); // Alert might be too intrusive for quick save
-  } catch (error) {
-     console.error("Error saving file (overwrite):", error);
-     currentError.value = `Error saving file: ${error}`;
-     alert(`Failed to save file: ${error}`); // Show error on failure
-  }
-}
 
 // Function to start a new, empty document
 function newFile() {
@@ -642,28 +526,20 @@ function toggleSidebarView() {
       <v-btn prepend-icon="mdi-file-outline" @click="newFile">
         New File
       </v-btn>
-      <v-btn prepend-icon="mdi-folder-open-outline" @click="openFile">
-        Open File
-      </v-btn>
-       <v-btn 
-        prepend-icon="mdi-content-save" 
-        @click="saveFile" 
-        :disabled="!gtfData || !currentFilePath" 
-      >
-        Save
-      </v-btn>
-      <v-btn 
-        prepend-icon="mdi-content-save-cog-outline" 
-        @click="saveFileAs" 
-        :disabled="!gtfData" 
-      >
-        Save As...
-      </v-btn>
+      <FileOperations
+        :gtf-data="gtfData"
+        :current-file-path="currentFilePath"
+        @update:gtfData="gtfData = $event"
+        @update:currentFilePath="currentFilePath = $event"
+        @update:currentView="currentView = $event"
+        @update:selectedGlyphName="selectedGlyphName = $event"
+      />
       <v-btn 
         prepend-icon="mdi-translate" 
         @click="languageDialogVisible = true"
         :disabled="!gtfData"
-       >
+      >
+        Check Characters
       </v-btn>
       <v-btn 
         :prepend-icon="isDarkMode ? 'mdi-weather-sunny' : 'mdi-weather-night'"
