@@ -34,8 +34,6 @@
                 v-bind="tooltipProps" 
                 class="bitmap-cell"
                 :class="{
-                  'highlight-row': hoveredY === y,
-                  'highlight-col': hoveredX === x,
                   'highlight-current': hoveredX === x && hoveredY === y
                 }"
                 :style="[getCellStyle(char), cellDynamicSizeStyle]"
@@ -208,16 +206,6 @@ function getCellStyle(char) {
 .bitmap-cell:hover {
   cursor: pointer;
   border: 1px solid #aaa !important;
-}
-
-.highlight-row {
-  border: 1px solid rgba(255, 255, 255, 0.5) !important;
-  box-shadow: 0 0 5px rgba(255, 255, 255, 0.3) !important;
-}
-
-.highlight-col {
-  border: 1px solid rgba(255, 255, 255, 0.5) !important;
-  box-shadow: 0 0 5px rgba(255, 255, 255, 0.3) !important;
 }
 
 .highlight-current {
