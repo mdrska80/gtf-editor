@@ -296,8 +296,8 @@ watch(() => props.glyphData.size, (newSize, oldSize) => {
   const currentBitmap = props.glyphData.bitmap;
   let newBitmap = [...currentBitmap]; // Start with a copy
   
-  // Determine the character to use for padding - always use selectedDrawChar
-  const defaultChar = selectedDrawChar.value;
+  // Determine the character to use for padding - always use '.'
+  const defaultChar = '.';
   console.log(`Resizing: Using defaultChar: ${defaultChar}`);
 
   // 1. Adjust Height
