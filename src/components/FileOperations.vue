@@ -29,19 +29,6 @@
       Save As
     </v-btn>
 
-    <v-btn
-      color="primary"
-      prepend-icon="mdi-file-import"
-      @click="importDialogVisible = true"
-    >
-      Import Font
-    </v-btn>
-
-    <FileImport
-      v-model="importDialogVisible"
-      @import="handleImport"
-    />
-
     <v-alert
       v-if="error"
       type="error"

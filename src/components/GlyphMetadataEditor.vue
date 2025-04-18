@@ -6,14 +6,17 @@
         label="Glyph Name" 
         :model-value="glyphData.name" 
         @update:model-value="$emit('update:glyphField', { field: 'name', value: $event })"
+        v-show="false" 
       ></v-text-field>
 
       <v-text-field 
-        label="Unicode" 
+        label="Unicode"         
         :model-value="glyphData.unicode || ''" 
         @update:model-value="$emit('update:glyphField', { field: 'unicode', value: $event })"
         placeholder="U+XXXX"
-        hint="Format: U+XXXX" >
+        hint="Format: U+XXXX" 
+        v-show="false"
+        >
         <template v-slot:append-inner>
           <span class="text-caption text-grey">(ALT+{{ unicodeDecimalValue }})</span>
         </template>
@@ -25,6 +28,7 @@
         @update:model-value="handleCharReprInput"
         placeholder="Single character"
         counter
+        class="prominent-char-input" 
       ></v-text-field>
 
       <v-text-field 
@@ -116,4 +120,23 @@ function handleSizeChange() {
     sizeError.value = 'Invalid format. Use WxH (e.g., 5x7).';
   }
 }
-</script> 
+</script>
+
+<style scoped>
+.prominent-char-input :deep(input) {
+  font-size: 2.5em; /* Increase font size further */
+  text-align: center; /* Center the character */
+}
+
+.prominent-char-input :deep(.v-field__input) {
+    padding-top: 8px; /* Adjust padding for larger font */
+    padding-bottom: 8px;
+}
+
+/* Optional: Add a subtle background or border */
+/*
+.prominent-char-input :deep(.v-field) {
+  background-color: #f0f0f0;
+}
+*/
+</style> 
