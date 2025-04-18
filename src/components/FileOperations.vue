@@ -29,6 +29,19 @@
       Save As
     </v-btn>
 
+    <v-btn
+      color="primary"
+      prepend-icon="mdi-file-import"
+      @click="importDialogVisible = true"
+    >
+      Import Font
+    </v-btn>
+
+    <FileImport
+      v-model="importDialogVisible"
+      @import="handleImport"
+    />
+
     <v-alert
       v-if="error"
       type="error"
@@ -45,6 +58,7 @@
 import { ref, computed } from 'vue';
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import FileImport from './FileImport.vue';
 
 const props = defineProps({
   gtfData: {
@@ -66,6 +80,7 @@ const emit = defineEmits([
 
 const error = ref(null);
 const isLoading = ref(false);
+const importDialogVisible = ref(false);
 
 const canSave = computed(() => {
   return props.gtfData !== null;
@@ -175,5 +190,10 @@ async function handleSaveFileAs() {
     error.value = `Error saving file: ${errorString}`;
     alert(`Failed to save file: ${errorString}`);
   }
+}
+
+function handleImport(importedData) {
+  // TODO: Handle the imported data
+  console.log('Imported data:', importedData);
 }
 </script> 
