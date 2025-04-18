@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, nextTick } from "vue";
 import HeaderEditor from './components/HeaderEditor.vue';
 import GlyphEditor from './components/GlyphEditor.vue';
 import GlyphPreviewBar from './components/GlyphPreviewBar.vue';
@@ -19,6 +19,7 @@ const selectedGlyphName = ref(null); // Holds the name of the selected glyph
 const currentFilePath = ref(null); // Holds the path of the currently open file
 const languageDialogVisible = ref(false); // State for dialog visibility
 const isDarkMode = ref(true); // Theme state
+const glyphEditorRef = ref(null); // <-- Add ref for GlyphEditor
 
 // --- NEW: State for sidebar view mode ---
 const isSimplePreviewMode = ref(true); // false = grouped list, true = simple preview grid
@@ -241,6 +242,14 @@ function addGlyph() {
 
   // Automatically select the new glyph
   selectGlyph(newName);
+
+  // Scroll to the editor after the DOM updates
+  nextTick(() => {
+    if (glyphEditorRef.value?.$el) {
+      // Scroll the GlyphEditor component itself into view
+      glyphEditorRef.value.$el.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
+    }
+  });
 }
 
 // Function to remove the selected glyph
@@ -691,6 +700,7 @@ function toggleSidebarView() {
       
       <GlyphEditor
         v-if="currentView === 'glyph' && selectedGlyphData"
+        ref="glyphEditorRef"
         :key="selectedGlyphName" 
         :glyph-data="selectedGlyphData"
         :palette="selectedGlyphData.palette?.entries ? Object.entries(selectedGlyphData.palette.entries).map(([char, color]) => ({ char, color })) : []" 

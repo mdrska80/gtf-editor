@@ -92,6 +92,28 @@ watch(() => props.glyphData?.size, (newSize) => {
 
 function handleCharReprInput(newValue) {
   emit('update:glyphField', { field: 'char_repr', value: newValue });
+
+  // Update the Unicode value when the character changes
+  if (newValue && newValue.length > 0) {
+    try {
+      // Get the Unicode code point of the first character
+      const codePoint = newValue.codePointAt(0);
+      if (codePoint !== undefined) {
+        // Format as U+XXXX (ensure at least 4 hex digits, pad with leading zeros if needed)
+        const unicodeValue = `U+${codePoint.toString(16).toUpperCase().padStart(4, '0')}`;
+        emit('update:glyphField', { field: 'unicode', value: unicodeValue });
+      } else {
+        // Handle cases where codePointAt might return undefined (shouldn't happen for non-empty strings)
+        emit('update:glyphField', { field: 'unicode', value: '' });
+      }
+    } catch (error) {
+      console.error("Error calculating Unicode:", error);
+      emit('update:glyphField', { field: 'unicode', value: '' }); // Clear on error
+    }
+  } else {
+    // Clear Unicode field if character input is empty
+    emit('update:glyphField', { field: 'unicode', value: '' });
+  }
 }
 
 function handleSizeChange() {
