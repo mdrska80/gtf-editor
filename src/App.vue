@@ -558,7 +558,7 @@ function toggleSidebarView() {
       </v-btn>
     </v-app-bar>
 
-    <v-navigation-drawer permanent :theme="isDarkMode ? 'dark' : 'light'">
+    <v-navigation-drawer permanent theme="dark">
       <v-list density="compact">
          <v-list-item 
            title="Font Header" 
