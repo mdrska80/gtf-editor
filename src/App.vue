@@ -6,6 +6,7 @@ import GlyphPreviewBar from './components/GlyphPreviewBar.vue';
 import GlyphPreview from './components/GlyphPreview.vue';
 import LanguageCheckDialog from './components/LanguageCheckDialog.vue';
 import FileOperations from './components/FileOperations.vue';
+import UIDemoPage from './components/UIDemoPage.vue';
 // Import Tauri API functions
 // import { invoke } from "@tauri-apps/api/core";
 // Import from the specific dialog plugin
@@ -521,6 +522,12 @@ function addSpecificGlyph(char) {
 function toggleSidebarView() {
   isSimplePreviewMode.value = !isSimplePreviewMode.value;
 }
+
+// --- NEW: Function to navigate to UIDemoPage ---
+function navigateToUIDemoPage() {
+  currentView.value = 'ui-demo'; // Set the current view
+  selectedGlyphName.value = null; // Deselect any glyph
+}
 </script>
 
 <template>
@@ -555,6 +562,10 @@ function toggleSidebarView() {
         @click="isDarkMode = !isDarkMode"
         :title="isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
       >
+      </v-btn>
+      <!-- button when clicked it will navigate to UIDemoPage -->
+      <v-btn @click="navigateToUIDemoPage">
+        UIDemoPage
       </v-btn>
     </v-app-bar>
 
@@ -706,6 +717,11 @@ function toggleSidebarView() {
         :palette="selectedGlyphData.palette?.entries ? Object.entries(selectedGlyphData.palette.entries).map(([char, color]) => ({ char, color })) : []" 
         :header-default-palette="processedDefaultPalette"
         @update:glyph-field="updateGlyphData"
+      />
+
+      <!-- NEW: Display UIDemoPage -->
+      <UIDemoPage
+        v-if="currentView === 'ui-demo'"
       />
 
       <!-- Placeholder for when nothing is selected or data is loading -->
