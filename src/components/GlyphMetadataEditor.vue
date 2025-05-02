@@ -10,19 +10,6 @@
       ></v-text-field>
 
       <v-text-field 
-        label="Unicode"         
-        :model-value="glyphData.unicode || ''" 
-        @update:model-value="$emit('update:glyphField', { field: 'unicode', value: $event })"
-        placeholder="U+XXXX"
-        hint="Format: U+XXXX" 
-        v-show="false"
-        >
-        <template v-slot:append-inner>
-          <span class="text-caption text-grey">(ALT+{{ unicodeDecimalValue }})</span>
-        </template>
-      </v-text-field>
-
-      <v-text-field 
         label="Character" 
         :model-value="glyphData.char_repr || ''" 
         @update:model-value="handleCharReprInput"
@@ -30,6 +17,20 @@
         counter
         class="prominent-char-input" 
       ></v-text-field>
+
+
+      <v-text-field 
+        label="Unicode"         
+        :model-value="glyphData.unicode || ''" 
+        @update:model-value="$emit('update:glyphField', { field: 'unicode', value: $event })"
+        placeholder="U+XXXX"
+        hint="Format: U+XXXX" 
+        v-show="true"
+        >
+        <template v-slot:append-inner>
+          <span class="text-caption text-grey">(ALT+{{ unicodeDecimalValue }})</span>
+        </template>
+      </v-text-field>
 
       <v-text-field 
         label="Size (WxH)" 
