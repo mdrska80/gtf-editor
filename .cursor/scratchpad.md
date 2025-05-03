@@ -20,7 +20,7 @@
 - **Global Application:** Applying styles globally requires careful planning. Vuetify's theme system helps, but we need to ensure custom styles integrate well and don't conflict.
 - **Theme Switching:** Vuetify provides mechanisms for theme switching, simplifying this task. We need to configure the light/dark palettes within Vuetify's theme settings.
 
-## High-level Task Breakdown
+## High-level Task Breakdown (Revised Plan)
 
 1.  **Setup & Run:** Ensure the project can be installed (`npm install`) and run locally (`npm run dev`).
     - *Success Criteria:* The application loads successfully in the browser without errors.
@@ -32,24 +32,35 @@
     - *Success Criteria:* The character buttons have improved visual appeal (e.g., better spacing, depth/shadows, hover effects) addressing the user's feedback.
 5.  **(UI Refinement Task) Verify Dark Mode Compatibility:** (Done - Considered complete despite known minor shadow issue)
     - *Success Criteria:* All UI elements have appropriate colors and contrast in both light and dark modes, leveraging Vuetify themes. (Met, with noted exception)
-6.  **(Optional/Future) Implement Advanced Features & Refinements:**
-    *   **Improved Language Check:** Add more languages or custom sets. (Task deferred - Marked complete by user request without further implementation)
+6.  **(Core Feature) Implement "Save" Functionality:** Differentiate "Save" (overwrite) from "Save As". (Verified Complete)
+    - *Success Criteria:* User can save changes to the current file without a dialog if previously saved. "Save As" still prompts for a new location. Save on a new file triggers Save As.
+7.  **(UX) Add Confirmation Dialog for Glyph Deletion:** Prevent accidental deletion.
+    - *Success Criteria:* Confirmation prompt shown before glyph deletion.
+8.  **(Core Feature) Basic Undo/Redo (Metadata):** Implement Undo/Redo for Header/Glyph text fields.
+    - *Success Criteria:* Ctrl+Z/Ctrl+Y works for simple metadata changes.
+9.  **(Refactoring) Refactor App.vue:** Extract logic and template sections into smaller components/composables to improve maintainability.
+    - *Success Criteria:* Identified parts (e.g., Sidebar) extracted, `App.vue` size reduced.
 
-## Project Status Board
+## Project Status Board (Revised)
 
 - [x] Setup & Run
 - [x] Understand GTF Spec
 - [x] Explore UI & Code (Accurate)
-- **Core Missing Features:** (All Done)
+- **Core Missing Features:** (All Done per original scope)
     - [x] Implement New File Functionality
     - [x] Implement Add/Remove Glyphs
     - [x] Implement Header Editing Logic
     - [x] Implement Bitmap Resizing Logic
-- **Refinements & New Features:**
+- **Refinements & New Features (Round 1):**
     - [x] Redesign Language Check Dialog UI (Completed)
     - [x] Verify Dark Mode Compatibility (Completed - Known shadow issue)
     - [x] Add Improved Language Check (Marked Complete - No further changes)
 - [x] Investigate Frontend Stack
+- **New Proposed Tasks (Round 2 - Updated):**
+    - [x] Implement "Save" Functionality (Verified Complete)
+    - [ ] Add Confirmation Dialog for Glyph Deletion
+    - [ ] Basic Undo/Redo (Metadata)
+    - [ ] Refactor App.vue (Starting with Sidebar)
 
 ## Lessons
 
@@ -70,4 +81,9 @@
 
 ## Executor's Feedback or Assistance Requests
 
-*(No current requests or blockers)*
+**Task: Implement "Save" Functionality**
+
+- **Status:** Analyzing `FileOperations.vue`. Found existing separate `handleSaveFile` and `handleSaveFileAs` functions.
+- **Goal:** Ensure distinct "Save" (overwrite) and "Save As" actions work correctly.
+- **Action:** Identified that core logic exists but needs verification, especially the behavior of "Save" on a new, unsaved file.
+- **Request:** Please test the Save/Save As scenarios outlined in the previous message, particularly step 4 (Save on New File). Report if "Save" correctly falls back to "Save As" behavior in that case.
