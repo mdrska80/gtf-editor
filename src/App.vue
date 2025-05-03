@@ -9,9 +9,13 @@ import FileOperations from './components/FileOperations.vue';
 import UIDemoPage from './components/UIDemoPage.vue';
 import AppSidebar from './components/AppSidebar.vue';
 import { useGtfStore } from './composables/useGtfStore';
+import { useGlyphDisplay } from './composables/useGlyphDisplay';
 
 // --- Instantiate Store ---
 const store = useGtfStore();
+
+// --- Instantiate Display Logic ---
+const display = useGlyphDisplay(computed(() => store.gtfData.value?.glyphs));
 
 // --- Local UI State / Refs --- 
 // State that App.vue still needs to manage directly
@@ -23,22 +27,11 @@ const store = useGtfStore();
 const languageDialogVisible = ref(false); // State for dialog visibility
 const isDarkMode = ref(true); // Theme state
 const glyphEditorRef = ref(null); // Ref for GlyphEditor component instance (for scrolling)
-const isSimplePreviewMode = ref(true); // State for sidebar view mode (could move to display composable later)
+// const isSimplePreviewMode = ref(true); // Moved to display composable
 
-// --- Character Sets Data (Could move later) ---
-const commonLowercase = 'abcdefghijklmnopqrstuvwxyz';
-const commonUppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-const commonDigits = '0123456789';
-const commonPunctuation = '!"#$%&\'()*+,-./:;<=>?@[\]^_`{|}~ '; 
-const allCommon = commonLowercase + commonUppercase + commonDigits + commonPunctuation;
-const languageCharacterSets = {
-  Czech: 'áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ' + allCommon,
-  Slovak: 'áäčďéíĺľňóôŕšťúýžÁÄČĎÉÍĹĽŇÓÔŔŠŤÚÝŽ' + allCommon,
-  Romanian: 'ăâîșțĂÂÎȘȚ' + allCommon,
-  Hungarian: 'áéíóöőúüűÁÉÍÓÖŐÚÜŰ' + allCommon,
-  Estonian: 'äõöüšžÄÕÖÜŠŽ' + allCommon,
-  "Basic Latin + Digits": allCommon
-};
+// --- Character Sets Data (Moved to display composable) ---
+// const commonLowercase = ...
+// const languageCharacterSets = ...
 
 // --- Computed Properties (Derived from store or local state) ---
 
@@ -51,41 +44,9 @@ const processedDefaultPalette = computed(() => {
            : [];
 });
 
-// --- Sorting/Grouping Computed Properties (Could move later) ---
-const sortedGlyphs = computed(() => {
-  if (!store.gtfData.value || !store.gtfData.value.glyphs) return [];
-  const parseUnicode = (unicodeStr) => {
-    if (!unicodeStr || !unicodeStr.startsWith('U+')) return Infinity; 
-    try { return parseInt(unicodeStr.substring(2), 16); } 
-    catch (e) { console.warn(`Error parsing unicode: ${unicodeStr}`, e); return Infinity; }
-  };
-  return [...store.gtfData.value.glyphs].sort((a, b) => parseUnicode(a.unicode) - parseUnicode(b.unicode));
-});
-
-const groupedGlyphs = computed(() => {
-  if (!store.gtfData.value || !store.gtfData.value.glyphs) return [];
-
-  const groups = { Uppercase: [], Lowercase: [], Digits: [], PunctuationSymbols: [], LanguageSpecific: [], Other: [], Undefined: [] };
-  const groupOrder = ['Uppercase', 'Lowercase', 'Digits', 'PunctuationSymbols', 'LanguageSpecific', 'Other', 'Undefined'];
-  const languageCharsSet = new Set(Object.values(languageCharacterSets).filter(set => set !== allCommon).join('').replace(new RegExp(`[${allCommon.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}]`, 'g'), ''));
-  const parseUnicode = (unicodeStr) => {
-    if (!unicodeStr || !unicodeStr.startsWith('U+')) return null;
-    try { return parseInt(unicodeStr.substring(2), 16); } catch (e) { return null; }
-  };
-
-  for (const glyph of sortedGlyphs.value) {
-    const codePoint = parseUnicode(glyph.unicode);
-    const char = glyph.char_repr;
-    if (codePoint === null) groups.Undefined.push(glyph);
-    else if (codePoint >= 0x41 && codePoint <= 0x5A) groups.Uppercase.push(glyph);
-    else if (codePoint >= 0x61 && codePoint <= 0x7A) groups.Lowercase.push(glyph);
-    else if (codePoint >= 0x30 && codePoint <= 0x39) groups.Digits.push(glyph);
-    else if ((codePoint >= 0x20 && codePoint <= 0x2F) || (codePoint >= 0x3A && codePoint <= 0x40) || (codePoint >= 0x5B && codePoint <= 0x60) || (codePoint >= 0x7B && codePoint <= 0x7E)) groups.PunctuationSymbols.push(glyph);
-    else if (char && languageCharsSet.has(char)) groups.LanguageSpecific.push(glyph);
-    else groups.Other.push(glyph);
-  }
-  return groupOrder.map(name => ({ name: name.replace(/([A-Z])/g, ' $1').trim(), glyphs: groups[name] })).filter(group => group.glyphs.length > 0);
-});
+// --- Sorting/Grouping Computed Properties (Moved to display composable) ---
+// const sortedGlyphs = computed(() => { ... });
+// const groupedGlyphs = computed(() => { ... });
 
 // --- Watchers ---
 
@@ -116,10 +77,6 @@ watch(store.selectedGlyphName, (newName, oldName) => {
 // function handleEditGlyph(glyphName) { ... } // Combined into store.selectGlyph
 
 // Functions still needed in App.vue
-function toggleSidebarView() {
-  isSimplePreviewMode.value = !isSimplePreviewMode.value;
-}
-
 function navigateToUIDemoPage() {
   store.currentView.value = 'ui-demo'; // Update view via store state
   store.selectedGlyphName.value = null; // Deselect any glyph via store state
@@ -183,15 +140,15 @@ function handleFilePathUpdate(newPath) {
       :active-view="store.currentView.value"
       :gtf-data-available="!!store.gtfData.value"
       :selected-glyph-name="store.selectedGlyphName.value"
-      :is-simple-preview-mode="isSimplePreviewMode"
-      :grouped-glyphs="groupedGlyphs"
-      :glyph-count="sortedGlyphs.length"
+      :is-simple-preview-mode="display.isSimplePreviewMode.value"
+      :grouped-glyphs="display.groupedGlyphs.value"
+      :glyph-count="display.sortedGlyphs.value.length"
       :processed-default-palette="processedDefaultPalette"
       @select-header="store.selectHeader"
       @select-glyph="store.selectGlyph"
       @add-glyph="store.addGlyph"
       @remove-glyph="store.removeGlyph"
-      @toggle-sidebar-view="toggleSidebarView"
+      @toggle-sidebar-view="display.toggleSidebarView"
     />
 
     <v-main>
@@ -232,7 +189,7 @@ function handleFilePathUpdate(newPath) {
     <LanguageCheckDialog 
       v-model="languageDialogVisible"
       :glyphs="store.gtfData.value?.glyphs || []"
-      :character-sets="languageCharacterSets"
+      :character-sets="display.languageCharacterSets"
       @add-glyph-for-char="store.addGlyphForChar"
       @edit-glyph="store.selectGlyph"
     />
