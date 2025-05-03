@@ -7,6 +7,7 @@ import GlyphPreview from './components/GlyphPreview.vue';
 import LanguageCheckDialog from './components/LanguageCheckDialog.vue';
 import FileOperations from './components/FileOperations.vue';
 import UIDemoPage from './components/UIDemoPage.vue';
+import AppSidebar from './components/AppSidebar.vue'; // <-- Import AppSidebar
 // Import Tauri API functions
 // import { invoke } from "@tauri-apps/api/core";
 // Import from the specific dialog plugin
@@ -658,118 +659,21 @@ function handleEditGlyph(glyphName) {
       </v-btn>
     </v-app-bar>
 
-    <v-navigation-drawer permanent theme="dark">
-      <v-list density="compact">
-         <v-list-item 
-           title="Font Header" 
-           :active="currentView === 'header'" 
-           @click="selectHeader" 
-           :disabled="!gtfData"
-           prepend-icon="mdi-information-outline"
-         ></v-list-item>
-
-         <!-- NEW: View Toggle Button -->
-         <v-list-item @click="toggleSidebarView">
-           <template v-slot:prepend>
-              <v-icon :icon="isSimplePreviewMode ? 'mdi-view-list' : 'mdi-view-grid'"></v-icon>
-           </template>
-           <v-list-item-title>{{ isSimplePreviewMode ? 'Show Grouped List' : 'Show Preview Grid' }}</v-list-item-title>
-         </v-list-item>
-
-         <v-divider></v-divider>
-         <v-list-subheader>GLYPHS ({{ sortedGlyphs.length }})</v-list-subheader>
-         
-         <!-- Add/Remove Buttons -->
-         <v-list-item v-if="gtfData">
-             <v-btn 
-               @click="addGlyph" 
-               block 
-               prepend-icon="mdi-plus-box-outline" 
-               variant="text" 
-               size="small"
-               class="mb-1"
-             >
-                 Add New
-             </v-btn>
-             <v-btn 
-               @click="removeGlyph" 
-               block 
-               prepend-icon="mdi-minus-box-outline" 
-               variant="text" 
-               size="small"
-               color="error" 
-               :disabled="!selectedGlyphName" 
-             >
-                 Remove Selected
-             </v-btn>
-         </v-list-item>
-         <v-divider v-if="gtfData"></v-divider>
-
-         <!-- === CONDITIONAL SIDEBAR CONTENT === -->
-
-         <!-- View 1: Grouped List with Cards (Existing) -->
-         <div v-if="!isSimplePreviewMode" class="glyph-group-container pa-1">
-           <!-- Loop over each group -->
-           <template v-for="group in groupedGlyphs" :key="group.name">
-             <v-list-subheader class="group-header">{{ group.name }} ({{ group.glyphs.length }})</v-list-subheader>
-             <!-- Grid for glyphs within this group -->
-             <div class="glyph-card-grid mb-2">
-               <!-- Existing v-card loop -->
-               <v-card 
-                 v-for="glyph in group.glyphs" 
-                 :key="glyph.name" 
-                 @click="selectGlyph(glyph.name)" 
-                 :variant="selectedGlyphName === glyph.name ? 'outlined' : 'flat'"
-                 density="compact" 
-                 flat 
-                 class="glyph-card" 
-                 :title="glyph.char_repr ? glyph.char_repr : glyph.name"
-               >
-                 <div class="d-flex align-center justify-center fill-height">
-                   <GlyphPreview 
-                     :glyph="glyph" 
-                     :default-palette="processedDefaultPalette" 
-                     :target-height="32" 
-                     class="list-preview"
-                   />
-                 </div>
-               </v-card>
-             </div>
-           </template>
-           <p v-if="!gtfData" class="text-caption pa-2">(No file loaded)</p>
-           <p v-else-if="groupedGlyphs.length === 0" class="text-caption pa-2">(No glyphs in file)</p>
-         </div>
-
-         <!-- View 2: Simple Preview Grid (New - Now Grouped) -->
-         <div v-else class="pa-1"> <!-- Removed simple-preview-grid class from outer div -->
-            <!-- Loop over groups -->
-            <template v-for="group in groupedGlyphs" :key="group.name + '-simple'">
-              <v-list-subheader class="group-header">{{ group.name }} ({{ group.glyphs.length }})</v-list-subheader>
-              <!-- Grid container for previews WITHIN this group -->
-              <div class="simple-preview-grid mb-2"> 
-                <div
-                  v-for="glyph in group.glyphs" 
-                  :key="glyph.name + '-preview'" 
-                  class="simple-preview-item"
-                  :class="{ 'selected': selectedGlyphName === glyph.name }"
-                  @click="selectGlyph(glyph.name)"
-                  :title="glyph.char_repr ? glyph.char_repr : glyph.name"
-                >
-                    <GlyphPreview
-                        :glyph="glyph"
-                        :default-palette="processedDefaultPalette"
-                        :target-height="36" 
-                        class="list-preview"
-                    />
-                </div>
-              </div>
-            </template>
-            <p v-if="!gtfData" class="text-caption pa-2">(No file loaded)</p>
-            <p v-else-if="groupedGlyphs.length === 0" class="text-caption pa-2">(No glyphs in file)</p>
-         </div>
-         
-      </v-list>
-    </v-navigation-drawer>
+    <!-- Use the new AppSidebar component -->
+    <AppSidebar
+      :active-view="currentView"
+      :gtf-data-available="!!gtfData" 
+      :selected-glyph-name="selectedGlyphName"
+      :is-simple-preview-mode="isSimplePreviewMode"
+      :grouped-glyphs="groupedGlyphs"
+      :glyph-count="sortedGlyphs.length" 
+      :processed-default-palette="processedDefaultPalette"
+      @select-header="selectHeader"
+      @select-glyph="selectGlyph"
+      @add-glyph="addGlyph"
+      @remove-glyph="removeGlyph"
+      @toggle-sidebar-view="toggleSidebarView"
+    />
 
     <v-main>
       <!-- Place Glyph Preview Bar INSIDE v-main -->
@@ -837,33 +741,23 @@ function handleEditGlyph(glyphName) {
 </template>
 
 <style scoped>
-/* Container for all groups */
+/* REMOVE sidebar styles - they are now in AppSidebar.vue */
+/*
 .glyph-group-container {
-  /* Add styling if needed */
 }
-
-/* Style for group headers */
 .group-header {
-  /* Make headers stand out a bit */
   font-weight: bold;
   margin-top: 8px;
-  /* background-color: rgba(255, 255, 255, 0.05); */ /* Optional subtle background */
 }
-
-/* Style for the grid container within each group */
 .glyph-card-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 4px; 
 }
-
-/* Style for the preview inside the card */
 .list-preview {
   margin: 0 !important;
   display: block;
 }
-
-/* Style the card itself */
 .glyph-card {
   cursor: pointer;
   transition: background-color 0.1s ease-in-out;
@@ -871,38 +765,30 @@ function handleEditGlyph(glyphName) {
   height: 52px;
   padding: 2px;
 }
-
 .glyph-card.v-card--variant-outlined {
     border-color: #1976D2;
     background-color: rgba(25, 118, 210, 0.1);
 }
-
-/* --- Styles for Simple Preview Grid View --- */
-
-/* Container for previews WITHIN a group */
 .simple-preview-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 6px; 
 }
-
 .simple-preview-item {
   cursor: pointer;
   padding: 2px;
-  border: 1px solid transparent; /* Placeholder for selection border */
+  border: 1px solid transparent;
   transition: border-color 0.1s ease-in-out;
 }
-
 .simple-preview-item.selected {
-  border-color: #1976D2; /* Primary blue border */
+  border-color: #1976D2;
   background-color: rgba(25, 118, 210, 0.1);
 }
-
 .simple-preview-item .list-preview {
   display: block;
   margin: 0 !important;
 }
-
+*/
 </style>
 <style>
 /* Global styles if needed */
