@@ -8,6 +8,7 @@ import LanguageCheckDialog from './components/LanguageCheckDialog.vue';
 import FileOperations from './components/FileOperations.vue';
 import UIDemoPage from './components/UIDemoPage.vue';
 import AppSidebar from './components/AppSidebar.vue';
+import FontPreviewPage from './components/FontPreviewPage.vue';
 import { useGtfStore } from './composables/useGtfStore';
 import { useGlyphDisplay } from './composables/useGlyphDisplay';
 
@@ -52,7 +53,11 @@ const processedDefaultPalette = computed(() => {
 
 // Scroll to editor when a new glyph is selected (especially after adding)
 watch(store.selectedGlyphName, (newName, oldName) => {
-  // Only scroll if the view is changing to 'glyph' or already is 'glyph' and name changes
+  // Check if view should change implicitly (e.g., from Font Preview)
+  if (newName && store.currentView.value === 'font-preview') {
+    store.currentView.value = 'glyph'; // Switch back to editor
+  }
+  // Scroll to editor
   if (newName && store.currentView.value === 'glyph') { 
     console.log("App.vue Watcher: selectedGlyphName changed to", newName, "Scrolling into view.");
     nextTick(() => {
@@ -80,6 +85,12 @@ watch(store.selectedGlyphName, (newName, oldName) => {
 function navigateToUIDemoPage() {
   store.currentView.value = 'ui-demo'; // Update view via store state
   store.selectedGlyphName.value = null; // Deselect any glyph via store state
+}
+
+function navigateToFontPreview() {
+  store.currentView.value = 'font-preview'; // Set new view
+  // Keep selected glyph name if user wants to jump back? Or clear it?
+  // store.selectedGlyphName.value = null; 
 }
 
 // --- Event Handlers (Bridging UI events to store actions) ---
@@ -131,6 +142,14 @@ function handleFilePathUpdate(newPath) {
         :title="isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
       >
       </v-btn>
+      <v-btn 
+        prepend-icon="mdi-format-text-variant-outline" 
+        @click="navigateToFontPreview" 
+        :disabled="!store.gtfData.value" 
+        title="Preview Font"
+      >
+        Preview
+      </v-btn>
       <v-btn @click="navigateToUIDemoPage">
         UIDemoPage
       </v-btn>
@@ -175,6 +194,8 @@ function handleFilePathUpdate(newPath) {
       />
 
       <UIDemoPage v-if="store.currentView.value === 'ui-demo'"/>
+
+      <FontPreviewPage v-if="store.currentView.value === 'font-preview'"/>
 
       <v-container v-if="!store.currentView.value && store.gtfData.value">
         <p>Select the Font Header or a Glyph from the list to start editing.</p>

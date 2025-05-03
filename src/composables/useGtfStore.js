@@ -1,60 +1,64 @@
-import { ref, computed, nextTick } from 'vue';
+import { ref, computed } from 'vue';
 
 // Initial empty state structure
 const initialGtfData = () => ({ header: {}, glyphs: [] });
 
+// --- Singleton State --- 
+// Define state refs *outside* the function to make them shared
+const gtfData = ref(initialGtfData()); 
+const currentFilePath = ref(null); 
+const selectedGlyphName = ref(null); 
+const currentView = ref(null); 
+const currentError = ref(null); 
+
+// --- Shared Computed Property ---
+const selectedGlyphData = computed(() => {
+  if (!gtfData.value || !selectedGlyphName.value) {
+    return null;
+  }
+  return gtfData.value.glyphs.find(g => g.name === selectedGlyphName.value) || null;
+});
+
+// --- Exported Composable Function --- 
 export function useGtfStore() {
-  // --- State --- 
-  const gtfData = ref(initialGtfData()); // Holds the parsed GTF document { header: {}, glyphs: [] }
-  const currentFilePath = ref(null); // Holds the path of the currently open file
-  const selectedGlyphName = ref(null); // Holds the name of the selected glyph
-  const currentView = ref(null); // Possible values: null, 'header', 'glyph', 'ui-demo'
-  const currentError = ref(null); // Holds error messages
 
-  // --- Computed --- (Moved selectedGlyphData here as it depends directly on store state)
-  const selectedGlyphData = computed(() => {
-    if (!gtfData.value || !selectedGlyphName.value) {
-      return null;
-    }
-    return gtfData.value.glyphs.find(g => g.name === selectedGlyphName.value) || null;
-  });
-
-  // --- Functions --- 
+  // --- Methods (operate on the shared state) --- 
 
   function clearError() {
     currentError.value = null;
   }
 
   function setGtfData(newData, filePath = null, view = 'header', glyphName = null) {
-      gtfData.value = newData;
+      // Ensure we handle potential null newData
+      gtfData.value = newData || initialGtfData(); 
       currentFilePath.value = filePath;
       currentView.value = view;
       selectedGlyphName.value = glyphName;
       currentError.value = null; // Clear errors on successful load/new
-      console.log("GTF Store: Data updated", { filePath, view, glyphName });
+      console.log("GTF Store: Data updated (Singleton)", { filePath, view, glyphName });
   }
 
   function newFile() {
     // TODO: Add check for unsaved changes before proceeding
-    console.log("GTF Store: Creating new file...");
+    console.log("GTF Store: Creating new file (Singleton)...");
     setGtfData(initialGtfData(), null, 'header', null);
   }
 
   function selectGlyph(glyphName) {
     selectedGlyphName.value = glyphName;
     currentView.value = 'glyph'; // Switch view to glyph editor
-    console.log("GTF Store: Selected glyph", glyphName);
+    console.log("GTF Store: Selected glyph (Singleton)", glyphName);
   }
 
   function selectHeader() {
     selectedGlyphName.value = null; // Deselect any glyph
     currentView.value = 'header'; // Switch view to header editor
-    console.log("GTF Store: Selected header");
+    console.log("GTF Store: Selected header (Singleton)");
   }
 
   function addGlyph() {
     if (!gtfData.value) return; 
-    console.log("GTF Store: Adding new glyph...");
+    console.log("GTF Store: Adding new glyph (Singleton)...");
 
     let newName = 'NewGlyph';
     let counter = 1;
@@ -86,30 +90,29 @@ export function useGtfStore() {
     };
 
     gtfData.value.glyphs.push(newGlyph);
-    console.log(`GTF Store: Added glyph: ${newName}`);
+    console.log(`GTF Store: Added glyph: ${newName} (Singleton)`);
     selectGlyph(newName); // Select the new glyph (triggers view change)
-    // UI scrolling logic remains in App.vue
   }
 
   function removeGlyph() {
     if (!gtfData.value || !selectedGlyphName.value) return;
-    console.log(`GTF Store: Removing glyph ${selectedGlyphName.value}`);
+    console.log(`GTF Store: Removing glyph ${selectedGlyphName.value} (Singleton)`);
 
     const indexToRemove = gtfData.value.glyphs.findIndex(g => g.name === selectedGlyphName.value);
 
     if (indexToRemove !== -1) {
         const removedName = gtfData.value.glyphs[indexToRemove].name;
         gtfData.value.glyphs.splice(indexToRemove, 1);
-        console.log(`GTF Store: Removed glyph: ${removedName}`);
+        console.log(`GTF Store: Removed glyph: ${removedName} (Singleton)`);
         selectHeader(); 
     } else {
-        console.warn(`GTF Store: Could not find glyph '${selectedGlyphName.value}' to remove.`);
+        console.warn(`GTF Store: Could not find glyph '${selectedGlyphName.value}' to remove. (Singleton)`);
         selectHeader(); 
     }
   }
 
   function updateHeaderData({ field, value }) {
-    console.log(`GTF Store: Updating header - Field: ${field}`, value);
+    console.log(`GTF Store: Updating header - Field: ${field} (Singleton)`, value);
     if (gtfData.value && gtfData.value.header) {
         if (field === 'default_palette') {
             const newPalette = value && typeof value === 'object' && value.entries ? value : { entries: {} };
@@ -121,13 +124,13 @@ export function useGtfStore() {
             gtfData.value.header[field] = (typeof value === 'string' && value.trim() === '') ? null : value;
         }
     } else {
-      console.warn("GTF Store: Attempted to update header data, but gtfData or header is null.");
+      console.warn("GTF Store: Attempted to update header data, but gtfData or header is null. (Singleton)");
     }
   }
 
   function updateGlyphData({ field, value, action }) {
     if (!gtfData.value || !selectedGlyphName.value) return;
-    console.log(`GTF Store: Updating glyph ${selectedGlyphName.value} - Field: ${field}, Action: ${action}`, value);
+    console.log(`GTF Store: Updating glyph ${selectedGlyphName.value} - Field: ${field}, Action: ${action} (Singleton)`, value);
     
     const glyphIndex = gtfData.value.glyphs.findIndex(g => g.name === selectedGlyphName.value);
     if (glyphIndex === -1) return;
@@ -138,7 +141,7 @@ export function useGtfStore() {
       if (gtfData.value.header.default_palette?.entries) {
          currentGlyph.palette = { entries: JSON.parse(JSON.stringify(gtfData.value.header.default_palette.entries)) };
       } else {
-          console.warn("GTF Store: Attempted to apply default palette, but none exists in header.");
+          console.warn("GTF Store: Attempted to apply default palette, but none exists in header. (Singleton)");
       }
       return; 
     }
@@ -199,10 +202,10 @@ export function useGtfStore() {
 
   function addGlyphForChar(char) {
     if (!gtfData.value) return;
-    console.log(`GTF Store: Attempting to add glyph for char: '${char}'`);
+    console.log(`GTF Store: Attempting to add glyph for char: '${char}' (Singleton)`);
 
     if (gtfData.value.glyphs.some(g => g.char_repr === char)) {
-      console.warn(`GTF Store: Glyph with char_repr '${char}' already exists.`);
+      console.warn(`GTF Store: Glyph with char_repr '${char}' already exists. (Singleton)`);
       const existingGlyph = gtfData.value.glyphs.find(g => g.char_repr === char);
       if (existingGlyph) { selectGlyph(existingGlyph.name); }
       return; 
@@ -250,21 +253,20 @@ export function useGtfStore() {
     }
 
     gtfData.value.glyphs.push(newGlyph);
-    console.log(`GTF Store: Added specific glyph '${newName}' for char '${char}'`);
+    console.log(`GTF Store: Added specific glyph '${newName}' for char '${char}' (Singleton)`);
     selectGlyph(newName);
-    // UI scrolling logic remains in App.vue
   }
 
-  // Return reactive state and methods
+  // Return the shared reactive state and methods
   return {
     gtfData,
     currentFilePath,
     selectedGlyphName,
     currentView,
     currentError,
-    selectedGlyphData, // Expose computed prop
+    selectedGlyphData, 
     clearError,
-    setGtfData, // Allow external updates (e.g., from FileOperations)
+    setGtfData,
     newFile,
     selectGlyph,
     selectHeader,

@@ -98,6 +98,10 @@ async function handleOpenFile() {
       const document = await invoke('load_gtf_file', { path: selectedPath });
       console.log("Parsed document:", document);
       
+      // --- DEBUGGING: Log the raw document received from Tauri ---
+      // console.log("FileOperations - Raw Parsed Document:", JSON.stringify(document, null, 2));
+      // --- END DEBUGGING ---
+
       emit('file-load-success', {
           gtfData: document,
           currentFilePath: selectedPath,

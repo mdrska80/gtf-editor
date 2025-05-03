@@ -45,6 +45,8 @@
         - [x] Create `useGtfStore.js` composable for core state and data methods.
         - [x] Create `useGlyphDisplay.js` composable for sorting/grouping/view mode.
         - [-] (Optional) Extract `AppTopBar.vue`. (Removed)
+10. **(UI Feature) Implement Font Preview Page:** Create a page to type text and see it rendered with the loaded GTF font.
+    - *Success Criteria:* New page accessible. Text input field works. Preview area dynamically renders input text using loaded glyphs, with placeholders for missing characters.
 
 ## Project Status Board (Revised)
 
@@ -66,6 +68,7 @@
     - [ ] Add Confirmation Dialog for Glyph Deletion
     - [ ] Basic Undo/Redo (Metadata)
     - [x] Refactor App.vue (Completed)
+    - [ ] Implement Font Preview Page (In Progress)
 
 ## Lessons
 
@@ -92,5 +95,12 @@
 - **Goal:** Separate display logic (sorting, grouping, view mode) from `App.vue`.
 - **Action:** Moved relevant state, computed properties, and functions to `useGlyphDisplay.js`. Updated `App.vue` to use the composable and pass data/handlers to `AppSidebar` and `LanguageCheckDialog`.
 - **Request:** Please run the app and verify sidebar display (sorting, grouping, view toggle) and language check dialog functionality. Re-check core features for regressions. Check console for errors.
+
+**Task: Implement Font Preview Page**
+
+- **Status:** Fixing bug - Preview glyphs rendering vertically.
+- **Goal:** Ensure glyphs render side-by-side like text.
+- **Action:** Removed conflicting `display: grid` from inline styles in `GlyphPreview.vue` to allow its CSS `display: inline-block` to apply. Removed override from parent.
+- **Request:** Please verify the Font Preview page layout again. Do glyphs render inline correctly now?
 
 *(No current requests or blockers)*
