@@ -11,7 +11,13 @@
     <!-- Grid Container -->
     <div 
       v-if="size && bitmap"
-      style="background-color: #000000; padding: 5px; border-radius: 4px; display: flex; justify-content: center;"
+      :style="{ 
+        backgroundColor: 'rgb(var(--v-theme-surface))',
+        padding: '5px', 
+        borderRadius: '4px', 
+        display: 'flex', 
+        justifyContent: 'center' 
+      }"
       @contextmenu.prevent
     >
       <div 
@@ -174,12 +180,12 @@ function getCellStyle(char) {
   if (paletteEntry) {
     return {
       'background-color': paletteEntry.color,
-      'border': '1px solid #eee'
+      'border': '1px solid rgba(var(--v-theme-on-surface), 0.12)'
     };
   }
   return {
-    'background-color': '#f0f0f0',
-    'border': '1px dashed red'
+    'background-color': 'rgb(var(--v-theme-surface-variant))',
+    'border': '1px dashed rgb(var(--v-theme-error))'
   };
 }
 </script>
@@ -205,17 +211,18 @@ function getCellStyle(char) {
 
 .bitmap-cell:hover {
   cursor: pointer;
-  border: 1px solid #aaa !important;
+  border: 1px solid currentColor !important;
+  opacity: 0.8;
 }
 
 .highlight-current {
-  border: 2px solid #ffff00 !important;
-  box-shadow: 0 0 10px rgba(255, 255, 0, 0.8) !important;
+  border: 2px solid rgb(var(--v-theme-warning)) !important;
+  box-shadow: 0 0 8px rgba(var(--v-theme-warning-rgb), 0.7) !important;
   z-index: 1;
 }
 
 .invalid-char-indicator {
-  color: red;
+  color: rgb(var(--v-theme-error));
   font-weight: bold;
   font-size: 10px;
   position: absolute;

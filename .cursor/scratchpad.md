@@ -162,17 +162,18 @@ The user wants to significantly enhance the visual appeal of the GTF editor appl
 - [x] Define Design System
 - [x] Setup Core Styling
 - [x] Create Demo Page **(Implemented toggle button and logic in `App.vue`)**
-- [ ] Style Basic Elements (Demo)
-- [ ] Style Common Components (Demo)
-- [ ] User Review & Refinement
-- [ ] (Future) Global Application
+- [-] Style Basic Elements (Demo) *(Skipped as per user request)*
+- [-] Style Common Components (Demo) *(Skipped as per user request)*
+- [-] User Review & Refinement *(Skipped as per user request)*
+- [ ] **(In Progress)** Global Application - Checked & fixed theme compatibility in child components.
 
 ## Executor's Feedback or Assistance Requests
 
-- Core styling (Vuetify theme config + toggle) is implemented and confirmed working by the user after manual restoration of `App.vue`.
-- Created `UIDemoPage.vue` and added logic to `App.vue` to toggle its visibility via a 'Demo'/'Editor' button in the app bar.
+- **Completed:** Checked theme compatibility for `HeaderEditor`, `GlyphEditor`, `PaletteEditor`, `GlyphMetadataEditor`, `BitmapGrid`, `BitmapTextView`, `GlyphTextView`, `GlyphPreview`, `FileOperations`, `LanguageCheckDialog`. Applied fixes using theme variables where needed.
+- **Request:** Please run the application and test the theme toggle. Verify that all main editor components adapt correctly to both light and dark modes without visual issues.
 
 ## Lessons
 
 - Identified frontend stack: Vue 3, Vite, Vuetify 3.
 - **Lesson:** Extreme care must be taken when editing existing complex components like `App.vue`. Always verify edits preserve existing functionality and structure. If unsure, revert or ask for confirmation before proceeding. Prefer smaller, targeted edits. 
+- **Lesson:** When applying themes globally, check child components for hardcoded colors/styles (backgrounds, borders, text colors) in both `<template>` (inline styles) and `<style scoped>`. Replace with theme variables (e.g., `rgb(var(--v-theme-surface))`, `rgb(var(--v-theme-error))`) or `currentColor` where appropriate for consistency. 

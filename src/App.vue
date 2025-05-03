@@ -523,7 +523,7 @@ function toggleSidebarView() {
   isSimplePreviewMode.value = !isSimplePreviewMode.value;
 }
 
-// --- NEW: Function to navigate to UIDemoPage ---
+// --- Re-add function to navigate to UIDemoPage ---
 function navigateToUIDemoPage() {
   currentView.value = 'ui-demo'; // Set the current view
   selectedGlyphName.value = null; // Deselect any glyph
@@ -563,7 +563,7 @@ function navigateToUIDemoPage() {
         :title="isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
       >
       </v-btn>
-      <!-- button when clicked it will navigate to UIDemoPage -->
+      <!-- Re-add UIDemoPage Button -->
       <v-btn @click="navigateToUIDemoPage">
         UIDemoPage
       </v-btn>
@@ -719,7 +719,7 @@ function navigateToUIDemoPage() {
         @update:glyph-field="updateGlyphData"
       />
 
-      <!-- NEW: Display UIDemoPage -->
+      <!-- Re-add UIDemoPage Component Instance -->
       <UIDemoPage
         v-if="currentView === 'ui-demo'"
       />

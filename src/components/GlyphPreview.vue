@@ -92,8 +92,10 @@ function getCellStyle(char) {
   box-sizing: border-box;
 }
 .glyph-preview-container:hover {
-    border-color: #888;
-    box-shadow: 0 0 3px rgba(0,0,0,0.2);
+    /* Use theme outline color for hover border */
+    border-color: rgb(var(--v-theme-outline)); 
+    /* Use a theme-based shadow or remove if not desired */
+    box-shadow: 0 0 3px rgba(var(--v-shadow-key-umbra-opacity), 0.2);
 }
 
 /* Removed .preview-row style */

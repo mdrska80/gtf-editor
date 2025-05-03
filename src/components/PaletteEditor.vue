@@ -218,14 +218,18 @@ function confirmAddEntry() {
   width: 24px;
   height: 24px;
   border-radius: 4px;
-  border: 1px solid #ccc; /* Default border */
+  /* Use currentColor for a subtle, theme-adaptive border */
+  border: 1px solid currentColor;
+  opacity: 0.7; /* Make it slightly transparent so bg shows */
   flex-shrink: 0; /* Prevent swatch from shrinking */
   display: inline-block; /* Needed for alignment */
   vertical-align: middle; /* Align with text fields */
 }
 
 .color-preview-swatch.invalid-color {
-    border: 2px solid red; /* Highlight invalid colors */
+    /* Use Vuetify's theme error color */
+    border: 2px solid rgb(var(--v-theme-error));
+    opacity: 1; /* Ensure error border is fully opaque */
 }
 
 /* Ensure buttons don't stretch */

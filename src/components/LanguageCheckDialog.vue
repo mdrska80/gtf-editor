@@ -202,21 +202,28 @@ watch(dialogVisible, (newValue) => {
     display: inline-flex;
     align-items: center;
     padding: 3px 6px;
-    border: 1px solid #ccc;
+    /* Use theme outline variant for border */
+    border: 1px solid rgb(var(--v-theme-outline-variant));
     border-radius: 4px;
     min-width: 45px;
     justify-content: center;
     transition: background-color 0.2s ease, border-color 0.2s ease;
-    background-color: #ffebee;
+    /* Use theme error container for missing chars */
+    background-color: rgb(var(--v-theme-error-container));
+    color: rgb(var(--v-theme-on-error-container)); /* Ensure text contrasts */
 }
 .char-display {
     margin-right: 5px;
 }
 .char-exists-text {
-    color: #777;
+    /* Use a muted on-surface color */
+    color: rgb(var(--v-theme-on-surface-variant));
 }
 .char-exists-bg {
-    background-color: #e8f5e9;
+    /* Use theme success container for existing chars */
+    background-color: rgb(var(--v-theme-success-container));
+    color: rgb(var(--v-theme-on-success-container)); /* Ensure text contrasts */
+    border-color: rgb(var(--v-theme-success)); /* Match border to success */
 }
 .status-icon {
     margin-left: auto;

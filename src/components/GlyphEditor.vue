@@ -397,7 +397,9 @@ function handleBitmapTextUpdate(newBitmapArrayFromSplit) {
 <style scoped>
 /* Add component-specific styles if needed */
 pre {
-  background-color: #eee;
+  /* Use a theme-aware surface color */
+  background-color: rgb(var(--v-theme-surface-variant));
+  color: rgb(var(--v-theme-on-surface-variant));
   padding: 10px;
   border-radius: 4px;
   font-family: monospace;
@@ -411,13 +413,17 @@ pre {
 .color-swatch {
   width: 20px;
   height: 20px;
-  border: 1px solid #ccc;
+  /* Use currentColor for border, match pre */
+  border: 1px solid currentColor;
+  opacity: 0.7;
   margin-right: 10px;
   display: inline-block;
 }
 .char-code {
   font-family: monospace;
-  background-color: #f0f0f0;
+  /* Match pre background */
+  background-color: rgb(var(--v-theme-surface-variant));
+  color: rgb(var(--v-theme-on-surface-variant));
   padding: 2px 4px;
   border-radius: 3px;
   margin-right: 5px;
@@ -425,7 +431,9 @@ pre {
 .color-swatch-small {
   width: 12px;
   height: 12px;
-  border: 1px solid #ccc;
+  /* Use currentColor for border, match pre */
+  border: 1px solid currentColor;
+  opacity: 0.7;
   margin-right: 5px;
   display: inline-block;
   vertical-align: middle;
@@ -433,5 +441,7 @@ pre {
 .char-code-small {
   font-family: monospace;
   font-size: 0.9em;
+  /* Ensure text color contrasts */
+  color: rgb(var(--v-theme-on-surface));
 }
 </style> 
