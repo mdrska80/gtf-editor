@@ -62,7 +62,8 @@ const emit = defineEmits([
   'update:gtfData',
   'update:currentFilePath',
   'update:currentView',
-  'update:selectedGlyphName'
+  'update:selectedGlyphName',
+  'file-load-success'
 ]);
 
 const error = ref(null);
@@ -97,23 +98,28 @@ async function handleOpenFile() {
       const document = await invoke('load_gtf_file', { path: selectedPath });
       console.log("Parsed document:", document);
       
-      emit('update:gtfData', document);
-      emit('update:currentFilePath', selectedPath);
-      emit('update:currentView', 'header');
-      emit('update:selectedGlyphName', null);
+      emit('file-load-success', {
+          gtfData: document,
+          currentFilePath: selectedPath,
+          currentView: 'header',
+          selectedGlyphName: null
+      });
     }
   } catch (error) {
     const errorString = String(error);
     console.error("Error loading or parsing file:", errorString);
     
+    emit('file-load-success', {
+        gtfData: null,
+        currentFilePath: null,
+        currentView: null,
+        selectedGlyphName: null
+    });
+
     if (errorString.includes('more bitmap lines than expected')) {
       error.value = `Warning: File loaded with known inconsistency (bitmap lines vs SIZE). Please review glyph definitions.`;
     } else {
       error.value = `Error: ${errorString}`;
-      emit('update:gtfData', null);
-      emit('update:currentView', null);
-      emit('update:selectedGlyphName', null);
-      emit('update:currentFilePath', null);
       alert(`Failed to load file: ${errorString}`);
     }
   } finally {
