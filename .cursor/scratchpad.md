@@ -68,6 +68,10 @@
     - [ ] Add Confirmation Dialog for Glyph Deletion
     - [x] Refactor App.vue (Completed)
     - [x] Implement Font Preview Page (Completed)
+- **Import:**
+    - [ ] Add new menu "Import" to main menu. Next to "Open File"
+    - [ ] Create common handler for handling multiple formats like *.dat something like import.js
+    - [ ] Implement import of dat structure defined in this document: [[VISE_Dat]]
 
 ## Lessons
 
