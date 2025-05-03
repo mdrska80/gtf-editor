@@ -38,8 +38,13 @@
     - *Success Criteria:* Confirmation prompt shown before glyph deletion.
 8.  **(Core Feature) Basic Undo/Redo (Metadata):** Implement Undo/Redo for Header/Glyph text fields.
     - *Success Criteria:* Ctrl+Z/Ctrl+Y works for simple metadata changes.
-9.  **(Refactoring) Refactor App.vue:** Extract logic and template sections into smaller components/composables to improve maintainability.
+9.  **(Refactoring) Refactor App.vue:** Extract logic and template sections into smaller components/composables to improve maintainability. (Completed)
     - *Success Criteria:* Identified parts (e.g., Sidebar) extracted, `App.vue` size reduced.
+    - *Sub-Tasks:*
+        - [x] Extract `AppSidebar.vue`
+        - [x] Create `useGtfStore.js` composable for core state and data methods.
+        - [x] Create `useGlyphDisplay.js` composable for sorting/grouping/view mode.
+        - [-] (Optional) Extract `AppTopBar.vue`. (Removed)
 
 ## Project Status Board (Revised)
 
@@ -60,7 +65,7 @@
     - [x] Implement "Save" Functionality (Verified Complete)
     - [ ] Add Confirmation Dialog for Glyph Deletion
     - [ ] Basic Undo/Redo (Metadata)
-    - [ ] Refactor App.vue (Starting with Sidebar)
+    - [x] Refactor App.vue (Completed)
 
 ## Lessons
 
@@ -81,9 +86,11 @@
 
 ## Executor's Feedback or Assistance Requests
 
-**Task: Refactor App.vue (Starting with Sidebar)**
+**Task: Refactor App.vue (useGlyphDisplay)**
 
-- **Status:** Sidebar extraction complete.
-- **Goal:** Improve maintainability of `App.vue` by extracting components.
-- **Action:** Created `src/components/AppSidebar.vue`. Moved navigation drawer template, logic, and styles. Updated `App.vue` to use the new component via props/emits.
-- **Request:** Please run the app and thoroughly verify sidebar functionality (navigation, view toggle, add/remove, selection) and check the console for errors.
+- **Status:** `useGlyphDisplay.js` composable created and integrated.
+- **Goal:** Separate display logic (sorting, grouping, view mode) from `App.vue`.
+- **Action:** Moved relevant state, computed properties, and functions to `useGlyphDisplay.js`. Updated `App.vue` to use the composable and pass data/handlers to `AppSidebar` and `LanguageCheckDialog`.
+- **Request:** Please run the app and verify sidebar display (sorting, grouping, view toggle) and language check dialog functionality. Re-check core features for regressions. Check console for errors.
+
+*(No current requests or blockers)*
