@@ -81,9 +81,9 @@
 
 ## Executor's Feedback or Assistance Requests
 
-**Task: Implement "Save" Functionality**
+**Task: Refactor App.vue (Starting with Sidebar)**
 
-- **Status:** Analyzing `FileOperations.vue`. Found existing separate `handleSaveFile` and `handleSaveFileAs` functions.
-- **Goal:** Ensure distinct "Save" (overwrite) and "Save As" actions work correctly.
-- **Action:** Identified that core logic exists but needs verification, especially the behavior of "Save" on a new, unsaved file.
-- **Request:** Please test the Save/Save As scenarios outlined in the previous message, particularly step 4 (Save on New File). Report if "Save" correctly falls back to "Save As" behavior in that case.
+- **Status:** Sidebar extraction complete.
+- **Goal:** Improve maintainability of `App.vue` by extracting components.
+- **Action:** Created `src/components/AppSidebar.vue`. Moved navigation drawer template, logic, and styles. Updated `App.vue` to use the new component via props/emits.
+- **Request:** Please run the app and thoroughly verify sidebar functionality (navigation, view toggle, add/remove, selection) and check the console for errors.
