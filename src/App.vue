@@ -528,6 +528,95 @@ function navigateToUIDemoPage() {
   currentView.value = 'ui-demo'; // Set the current view
   selectedGlyphName.value = null; // Deselect any glyph
 }
+
+// Function to add a new glyph (potentially triggered by language check)
+function addGlyphForChar(char) {
+  console.log(`Attempting to add glyph for character: '${char}'`);
+  if (!gtfData.value) return; // Need existing data structure
+
+  // Check if a glyph with this char_repr already exists
+  if (gtfData.value.glyphs.some(g => g.char_repr === char)) {
+    console.warn(`Glyph with char_repr '${char}' already exists. Cannot add duplicate.`);
+    // Optionally, select the existing glyph instead?
+    const existingGlyph = gtfData.value.glyphs.find(g => g.char_repr === char);
+    if (existingGlyph) {
+        selectGlyph(existingGlyph.name);
+        languageDialogVisible.value = false; // Close dialog
+    }
+    return; 
+  }
+
+  // Find a unique default name (consider using the char itself if valid)
+  let baseName = char.match(/[a-zA-Z0-9]/) ? char : 'Glyph'; // Use char if simple, else default
+  let newName = baseName;
+  let counter = 1;
+  const existingNames = new Set(gtfData.value.glyphs.map(g => g.name));
+  // Ensure base name is unique first
+  if (existingNames.has(newName)) {
+      newName = baseName + counter;
+      while (existingNames.has(newName)) {
+          counter++;
+          newName = baseName + counter;
+      }
+  } 
+  // Check again in case baseName + counter also exists from a previous loop
+  while (existingNames.has(newName)) { 
+      counter++;
+      newName = baseName + counter;
+  }
+
+  // Determine initial size
+  const initialSize = gtfData.value?.header?.default_size 
+                      ? { ...gtfData.value.header.default_size } 
+                      : { width: 5, height: 7 }; 
+  
+  const initialBitmap = Array(initialSize.height).fill('.'.repeat(initialSize.width));
+
+  // Determine initial palette
+  const initialPalette = (gtfData.value?.header?.default_palette?.entries && 
+                         Object.keys(gtfData.value.header.default_palette.entries).length > 0) 
+                      ? { entries: JSON.parse(JSON.stringify(gtfData.value.header.default_palette.entries)) }
+                      : { entries: {} };
+
+  const newGlyph = {
+      name: newName, // Use the new unique name (char or char_counter)
+      unicode: null,
+      char_repr: char,
+      size: initialSize, 
+      palette: initialPalette, 
+      bitmap: initialBitmap,
+      validation_warnings: null
+  };
+
+  gtfData.value.glyphs.push(newGlyph);
+  console.log(`Added specific glyph '${newName}' for character '${char}' with data:`, JSON.parse(JSON.stringify(newGlyph))); // Log added glyph data
+
+  // Select the new glyph
+  selectGlyph(newName);
+  languageDialogVisible.value = false; // Close the dialog after adding
+
+  // Scroll to the editor after the DOM updates
+  nextTick(() => {
+    if (glyphEditorRef.value?.$el) {
+      // Scroll the GlyphEditor component itself into view
+      glyphEditorRef.value.$el.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
+    }
+  });
+}
+
+// NEW: Function to handle editing a glyph triggered by language check
+function handleEditGlyph(glyphName) {
+    console.log(`Language Check: Selecting glyph '${glyphName}'`);
+    selectGlyph(glyphName); // Select the glyph
+    languageDialogVisible.value = false; // Close the dialog
+}
+
+// --- Tauri Integration ---
+
+// Function to load file using Tauri dialog
+
+// Function to save file using Tauri dialog
+
 </script>
 
 <template>
@@ -740,7 +829,8 @@ function navigateToUIDemoPage() {
       v-model="languageDialogVisible"
       :glyphs="gtfData?.glyphs || []"
       :character-sets="languageCharacterSets"
-      @add-glyph-for-char="addSpecificGlyph"
+      @add-glyph-for-char="addGlyphForChar"
+      @edit-glyph="handleEditGlyph"
     />
 
   </v-app>

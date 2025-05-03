@@ -22,6 +22,7 @@
   Emits:
   - update:modelValue (Boolean): For v-model updates.
   - add-glyph-for-char (String): Emitted with the character when the '+' button is clicked.
+  - edit-glyph (String): Emitted with the glyph name when the glyph is clicked.
 -->
 <template>
   <v-dialog v-model="dialogVisible" persistent max-width="800px">
@@ -51,37 +52,17 @@
                  <div 
                     v-for="char in orderedCharacters"
                     :key="char"
-                    class="char-item"
+                    class="char-item elevation-2"
                     :class="{ 'char-exists-bg': glyphExists(char) }"
+                    :title="glyphExists(char) ? `Edit glyph '${getGlyphName(char)}'` : `Add glyph for ${char}`"
+                    @click="handleCharItemClick(char)"
                  >
                    <span 
                      class="char-display"
                      :class="{ 'char-exists-text': glyphExists(char) }"
-                     :title="glyphExists(char) ? `Glyph '${getGlyphName(char)}' exists` : `Add glyph for ${char}`"
-                    >
-                      {{ char }}
-                   </span>
-                   <v-icon 
-                     v-if="glyphExists(char)"
-                     color="success" 
-                     size="small" 
-                     class="status-icon"
                    >
-                     mdi-check
-                   </v-icon>
-                   <v-tooltip location="top" :text="`Add glyph for '${char}'`" v-else>
-                     <template v-slot:activator="{ props: tooltipProps }">
-                       <v-btn 
-                         v-bind="tooltipProps"
-                         icon="mdi-plus-box-outline"
-                         size="x-small"
-                         variant="text"
-                         color="primary"
-                         @click="addGlyph(char)"
-                         class="add-button status-icon"
-                       ></v-btn>
-                     </template>
-                   </v-tooltip>
+                     {{ char }}
+                   </span>
                  </div>
               </div>
             </v-col>
@@ -115,7 +96,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['update:modelValue', 'add-glyph-for-char']);
+const emit = defineEmits(['update:modelValue', 'add-glyph-for-char', 'edit-glyph']);
 
 const selectedLanguage = ref(null);
 
@@ -169,9 +150,17 @@ function getGlyphName(char) {
     return charToNameMap.value.get(char) || '?'; // Get name for tooltip
 }
 
-function addGlyph(char) {
+function handleCharItemClick(char) {
+  if (glyphExists(char)) {
+    const glyphName = getGlyphName(char);
+    if (glyphName && glyphName !== '?') {
+        emit('edit-glyph', glyphName); 
+    } else {
+        console.warn(`Could not find glyph name for existing char: ${char}`);
+    }
+  } else {
     emit('add-glyph-for-char', char);
-    // Note: App.vue handles adding and closing the dialog
+  }
 }
 
 function closeDialog() {
@@ -193,42 +182,47 @@ watch(dialogVisible, (newValue) => {
 .character-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
     margin-top: 10px;
     font-size: 1.4em;
-    line-height: 1.6;
+    line-height: 1;
 }
 .char-item {
+    position: relative; /* Make item a positioning context */
     display: inline-flex;
     align-items: center;
-    padding: 3px 6px;
-    /* Use theme outline variant for border */
-    border: 1px solid rgb(var(--v-theme-outline-variant));
-    border-radius: 4px;
-    min-width: 45px;
     justify-content: center;
-    transition: background-color 0.2s ease, border-color 0.2s ease;
-    /* Use theme error container for missing chars */
+    width: 55px; /* Increased width */
+    height: 40px; /* Keep height */
+    border: 1px solid rgb(var(--v-theme-outline-variant));
+    border-radius: 6px;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     background-color: rgb(var(--v-theme-error-container));
-    color: rgb(var(--v-theme-on-error-container)); /* Ensure text contrasts */
+    color: rgb(var(--v-theme-on-error-container));
+    cursor: pointer; /* Indicate clickability */
 }
+.char-item:hover {
+    /* Subtle border highlight for missing glyph items on hover */
+    border-color: rgb(var(--v-theme-error)); 
+}
+
+/* Reset border highlight if glyph exists */
+.char-item.char-exists-bg:hover {
+    border-color: rgb(var(--v-theme-success));
+}
+
 .char-display {
-    margin-right: 5px;
+    flex-grow: 1;
+    text-align: center;
+    /* Ensure text doesn't overlap with absolute icon */
+    /* padding-right: 18px; */ /* No longer needed */
 }
 .char-exists-text {
-    /* Use a muted on-surface color */
     color: rgb(var(--v-theme-on-surface-variant));
 }
 .char-exists-bg {
-    /* Use theme success container for existing chars */
     background-color: rgb(var(--v-theme-success-container));
-    color: rgb(var(--v-theme-on-success-container)); /* Ensure text contrasts */
-    border-color: rgb(var(--v-theme-success)); /* Match border to success */
-}
-.status-icon {
-    margin-left: auto;
-}
-.add-button {
-    /* inherits status-icon margin */
+    color: rgb(var(--v-theme-on-success-container));
+    border-color: rgb(var(--v-theme-success));
 }
 </style> 
