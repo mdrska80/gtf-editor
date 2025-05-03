@@ -134,25 +134,27 @@ function handleFilePathUpdate(newPath) {
         @click="languageDialogVisible = true"
         :disabled="!store.gtfData.value"
       >
-        Check Characters
       </v-btn>
-      <v-btn 
-        :prepend-icon="isDarkMode ? 'mdi-weather-sunny' : 'mdi-weather-night'"
-        @click="isDarkMode = !isDarkMode"
-        :title="isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
-      >
-      </v-btn>
+
       <v-btn 
         prepend-icon="mdi-format-text-variant-outline" 
         @click="navigateToFontPreview" 
         :disabled="!store.gtfData.value" 
         title="Preview Font"
       >
-        Preview
       </v-btn>
+
+      <v-btn 
+        :prepend-icon="isDarkMode ? 'mdi-weather-sunny' : 'mdi-weather-night'"
+        @click="isDarkMode = !isDarkMode"
+        :title="isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+      >
+      </v-btn>
+      <!--
       <v-btn @click="navigateToUIDemoPage">
         UIDemoPage
       </v-btn>
+      -->
     </v-app-bar>
 
     <AppSidebar

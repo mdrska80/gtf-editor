@@ -66,17 +66,16 @@
 - **New Proposed Tasks (Round 2 - Updated):**
     - [x] Implement "Save" Functionality (Verified Complete)
     - [ ] Add Confirmation Dialog for Glyph Deletion
-    - [ ] Basic Undo/Redo (Metadata)
     - [x] Refactor App.vue (Completed)
-    - [ ] Implement Font Preview Page (In Progress)
+    - [x] Implement Font Preview Page (Completed)
 
 ## Lessons
 
 *(Learnings and reusable notes will be documented here)*
-- GTF v2 is a text format with HEADER/GLYPH blocks. Specification files: `glyph_format_spec_v2.md`, `SPECIFICATION.md`.
+- GTF v2 is a text format with HEADER/GLYPH blocks. Specification file: `glyph_format_spec_v2.md`.
 - Core parsing/saving logic exists in Rust (`src-tauri/src/gtf.rs`, `src-tauri/src/lib.rs`) via `load_gtf_file` and `save_gtf_file` Tauri commands.
 - Visual bitmap editor `BitmapGrid.vue` IS implemented.
-- `SPECIFICATION.md` checklist is outdated. **(Crucial: Need to read component logic AND function calls like `updateGlyphData` in `App.vue` thoroughly.)**
+- `SPECIFICATION.md` checklist is outdated **and the file has been removed**. This scratchpad (`.cursor/scratchpad.md`) is now the primary source for task tracking and project status.
 - File Ops (Open, Save, Save As, New File) implemented in `App.vue` / `FileOperations.vue`.
 - Add/Remove Glyphs implemented in `App.vue`.
 - Header/Glyph Metadata/Palette editing logic implemented via component events handled in `App.vue`.
@@ -86,6 +85,8 @@
 - Identified frontend stack: Vue 3, Vite, Vuetify 3.
 - Language check uses hardcoded sets in `App.vue`, interaction simplified to click-to-edit/add.
 - Achieving consistent custom `box-shadow` appearance across light/dark themes is difficult. Vuetify's `elevation` classes are the preferred method, but didn't fully resolve the desired subtle effect on the `.char-item` in dark mode for this specific case. (Task marked complete despite this minor visual issue).
+- **Refactoring:** Using composables (`useGtfStore`, `useGlyphDisplay`) helps break down large components like `App.vue` and centralize logic. Ensure composables intended as singletons define their state *outside* the exported function.
+- **Layout Debugging:** When `display: inline-block` isn't working as expected, check for conflicting `display` properties set dynamically in `:style` bindings or inherited from parent elements. Using wrapper elements can help isolate and control layout flow.
 
 ## Executor's Feedback or Assistance Requests
 
