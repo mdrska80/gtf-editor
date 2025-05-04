@@ -11,6 +11,16 @@
 
     <v-btn
       color="primary"
+      prepend-icon="mdi-import"
+      @click="handleImportClick"
+      :disabled="isLoading"
+      class="ml-2"
+    >
+      Import
+    </v-btn>
+
+    <v-btn
+      color="primary"
       prepend-icon="mdi-content-save"
       @click="handleSaveFile"
       :disabled="!canSave"
@@ -187,6 +197,11 @@ async function handleSaveFileAs() {
     error.value = `Error saving file: ${errorString}`;
     alert(`Failed to save file: ${errorString}`);
   }
+}
+
+function handleImportClick() {
+  console.log("Import button clicked (no action yet)");
+  // Later, this might open a dialog or trigger the import logic
 }
 
 function handleImport(importedData) {
