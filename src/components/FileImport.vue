@@ -43,15 +43,15 @@ import FntImporter from './importers/FntImporter.vue';
 const props = defineProps({
   modelValue: {
     type: Boolean,
-    required: true
-  }
+    required: true,
+  },
 });
 
 const emit = defineEmits(['update:modelValue', 'import']);
 
 const dialogVisible = computed({
   get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value)
+  set: (value) => emit('update:modelValue', value),
 });
 
 const activeTab = ref('dat');
@@ -79,4 +79,4 @@ async function importBfntFile(file) {
     console.error('Error importing BFNT file:', error);
   }
 }
-</script> 
+</script>

@@ -3,8 +3,8 @@
     <v-btn
       color="primary"
       prepend-icon="mdi-folder-open"
-      @click="handleOpenFile"
       :disabled="isLoading"
+      @click="handleOpenFile"
     >
       Open File
     </v-btn>
@@ -12,9 +12,9 @@
     <v-btn
       color="primary"
       prepend-icon="mdi-import"
-      @click="handleImportClick"
       :disabled="isLoading"
       class="ml-2"
+      @click="handleImportClick"
     >
       Import
     </v-btn>
@@ -22,9 +22,9 @@
     <v-btn
       color="primary"
       prepend-icon="mdi-content-save"
-      @click="handleSaveFile"
       :disabled="!canSave"
       class="ml-2"
+      @click="handleSaveFile"
     >
       Save
     </v-btn>
@@ -32,9 +32,9 @@
     <v-btn
       color="primary"
       prepend-icon="mdi-content-save-cog-outline"
-      @click="handleSaveFileAs"
       :disabled="!canSave"
       class="ml-2"
+      @click="handleSaveFileAs"
     >
       Save As
     </v-btn>
@@ -53,19 +53,19 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { invoke } from "@tauri-apps/api/core";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { invoke } from '@tauri-apps/api/core';
+import { open, save } from '@tauri-apps/plugin-dialog';
 import FileImport from './FileImport.vue';
 
 const props = defineProps({
   gtfData: {
     type: Object,
-    required: true
+    required: true,
   },
   currentFilePath: {
     type: String,
-    default: null
-  }
+    default: null,
+  },
 });
 
 const emit = defineEmits([
@@ -73,7 +73,7 @@ const emit = defineEmits([
   'update:currentFilePath',
   'update:currentView',
   'update:selectedGlyphName',
-  'file-load-success'
+  'file-load-success',
 ]);
 
 const error = ref(null);
@@ -91,43 +91,43 @@ function clearError() {
 async function handleOpenFile() {
   error.value = null;
   isLoading.value = true;
-  
+
   try {
     const selectedPath = await open({
       multiple: false,
       filters: [
         {
           name: 'Glyph Text Format',
-          extensions: ['gtf']
-        }
-      ]
+          extensions: ['gtf'],
+        },
+      ],
     });
 
     if (selectedPath && typeof selectedPath === 'string') {
-      console.log("Selected file:", selectedPath);
+      console.log('Selected file:', selectedPath);
       const document = await invoke('load_gtf_file', { path: selectedPath });
-      console.log("Parsed document:", document);
-      
+      console.log('Parsed document:', document);
+
       // --- DEBUGGING: Log the raw document received from Tauri ---
       // console.log("FileOperations - Raw Parsed Document:", JSON.stringify(document, null, 2));
       // --- END DEBUGGING ---
 
       emit('file-load-success', {
-          gtfData: document,
-          currentFilePath: selectedPath,
-          currentView: 'header',
-          selectedGlyphName: null
+        gtfData: document,
+        currentFilePath: selectedPath,
+        currentView: 'header',
+        selectedGlyphName: null,
       });
     }
   } catch (error) {
     const errorString = String(error);
-    console.error("Error loading or parsing file:", errorString);
-    
+    console.error('Error loading or parsing file:', errorString);
+
     emit('file-load-success', {
-        gtfData: null,
-        currentFilePath: null,
-        currentView: null,
-        selectedGlyphName: null
+      gtfData: null,
+      currentFilePath: null,
+      currentView: null,
+      selectedGlyphName: null,
     });
 
     if (errorString.includes('more bitmap lines than expected')) {
@@ -143,22 +143,22 @@ async function handleOpenFile() {
 
 async function handleSaveFile() {
   if (!props.gtfData || !props.currentFilePath) {
-    console.warn("Save attempted but no data or file path is available.");
+    console.warn('Save attempted but no data or file path is available.');
     return;
   }
 
   error.value = null;
   console.log(`Saving to current path: ${props.currentFilePath}`);
-  
+
   try {
-    await invoke('save_gtf_file', { 
+    await invoke('save_gtf_file', {
       path: props.currentFilePath,
-      document: props.gtfData
+      document: props.gtfData,
     });
-    console.log("File saved successfully (overwrite).");
+    console.log('File saved successfully (overwrite).');
   } catch (error) {
     const errorString = String(error);
-    console.error("Error saving file (overwrite):", errorString);
+    console.error('Error saving file (overwrite):', errorString);
     error.value = `Error saving file: ${errorString}`;
     alert(`Failed to save file: ${errorString}`);
   }
@@ -166,41 +166,43 @@ async function handleSaveFile() {
 
 async function handleSaveFileAs() {
   if (!props.gtfData) {
-    alert("No data to save. Please open a file first.");
+    alert('No data to save. Please open a file first.');
     return;
   }
 
   error.value = null;
-  
+
   try {
     const savePath = await save({
       filters: [
         {
           name: 'Glyph Text Format',
-          extensions: ['gtf']
-        }
+          extensions: ['gtf'],
+        },
       ],
-      defaultPath: props.gtfData?.header?.font_name ? `${props.gtfData.header.font_name}.gtf` : 'untitled.gtf'
+      defaultPath: props.gtfData?.header?.font_name
+        ? `${props.gtfData.header.font_name}.gtf`
+        : 'untitled.gtf',
     });
 
     if (savePath) {
-      console.log("Saving to file:", savePath);
-      await invoke('save_gtf_file', { 
-        path: savePath, 
-        document: props.gtfData
+      console.log('Saving to file:', savePath);
+      await invoke('save_gtf_file', {
+        path: savePath,
+        document: props.gtfData,
       });
       emit('update:currentFilePath', savePath);
     }
   } catch (error) {
     const errorString = String(error);
-    console.error("Error saving file:", errorString);
+    console.error('Error saving file:', errorString);
     error.value = `Error saving file: ${errorString}`;
     alert(`Failed to save file: ${errorString}`);
   }
 }
 
 function handleImportClick() {
-  console.log("Import button clicked (no action yet)");
+  console.log('Import button clicked (no action yet)');
   // Later, this might open a dialog or trigger the import logic
 }
 
@@ -208,4 +210,4 @@ function handleImport(importedData) {
   // TODO: Handle the imported data
   console.log('Imported data:', importedData);
 }
-</script> 
+</script>

@@ -1,7 +1,9 @@
 <template>
   <v-container>
     <h2>Font Preview</h2>
-    <p class="text-caption mb-4">Type text below to see it rendered using the currently loaded font glyphs.</p>
+    <p class="text-caption mb-4">
+      Type text below to see it rendered using the currently loaded font glyphs.
+    </p>
 
     <v-row>
       <v-col cols="12">
@@ -23,26 +25,34 @@
     <v-row>
       <v-col cols="12">
         <h3>Preview:</h3>
-        <div v-if="!gtfStore.gtfData.value || !gtfStore.gtfData.value.glyphs">
+        <div v-if="!hasGlyphs">
           <p>No font loaded or font has no glyphs.</p>
         </div>
-        <div v-else-if="!sampleText">
+        <div v-else-if="!hasSampleText">
           <p>Enter some text above to preview.</p>
         </div>
         <!-- Render the preview -->
-        <div v-else class="preview-area">
-          <div v-for="(line, lineIndex) in sampleTextLines" :key="lineIndex" class="preview-line">
+        <div v-else-if="shouldShowPreview" class="preview-area">
+          <div
+            v-for="(line, lineIndex) in sampleTextLines"
+            :key="lineIndex"
+            class="preview-line"
+          >
             <template v-for="(char, charIndex) in line" :key="charIndex">
               <!-- Restore span wrapper -->
               <span v-if="glyphMap[char]" class="preview-glyph-wrapper">
                 <GlyphPreview
                   :glyph="glyphMap[char]"
                   :default-palette="processedDefaultPalette"
-                  :target-height="previewGlyphHeight" 
-                  class="preview-glyph" 
+                  :target-height="previewGlyphHeight"
+                  class="preview-glyph"
                 />
               </span>
-              <span v-else class="missing-glyph-placeholder" :title="`Glyph for '${char}' not found`">
+              <span
+                v-else
+                class="missing-glyph-placeholder"
+                :title="`Glyph for '${char}' not found`"
+              >
                 {{ char }}
               </span>
             </template>
@@ -52,46 +62,51 @@
         </div>
       </v-col>
     </v-row>
-
   </v-container>
 </template>
 
 <script setup>
 import { ref, computed, watchEffect } from 'vue';
 import { useGtfStore } from '../composables/useGtfStore';
+import {
+  useOptimizedPalette,
+  useOptimizedGlyphMap,
+} from '../composables/usePerformanceOptimization';
 import GlyphPreview from './GlyphPreview.vue';
 
 const gtfStore = useGtfStore();
-const sampleText = ref('ABC abc 123 !@# ÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ\nSecond line with missing: xyz'); 
+const sampleText = ref(
+  'ABC abc 123 !@# ÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ\nSecond line with missing: xyz'
+);
 
 // --- Configuration ---
 const previewGlyphHeight = ref(32); // Target height for preview glyphs
 const missingCharPlaceholder = '□'; // Character to display for missing glyphs
 
-// --- Computed Properties ---
+// --- Optimized Computed Properties ---
 
-const processedDefaultPalette = computed(() => {
-    return gtfStore.gtfData.value?.header?.default_palette?.entries 
-           ? Object.entries(gtfStore.gtfData.value.header.default_palette.entries).map(([char, color]) => ({char, color})) 
-           : [];
+// Use optimized palette processing with memoization
+const processedDefaultPalette = useOptimizedPalette(gtfStore.gtfData);
+
+// Use optimized glyph map for better performance with large glyph sets
+const glyphMap = useOptimizedGlyphMap(
+  computed(() => gtfStore.gtfData.value?.glyphs)
+);
+
+// Memoized sample text lines to prevent unnecessary re-splits
+const sampleTextLines = computed(() => {
+  return sampleText.value ? sampleText.value.split('\n') : [];
 });
 
-// Create a map for quick lookup of char_repr -> glyph data
-const glyphMap = computed(() => {
-  const map = {};
-  if (gtfStore.gtfData.value?.glyphs) {
-    for (const glyph of gtfStore.gtfData.value.glyphs) {
-      if (glyph.char_repr) {
-        map[glyph.char_repr] = glyph;
-      }
-    }
-  }
-  return map;
-});
-
-// Split sample text into lines for rendering
-const sampleTextLines = computed(() => sampleText.value?.split('\n') || []);
-
+// Computed properties for template conditions (cached)
+const hasGtfData = computed(() => !!gtfStore.gtfData.value);
+const hasGlyphs = computed(
+  () => hasGtfData.value && gtfStore.gtfData.value.glyphs
+);
+const hasSampleText = computed(() => !!sampleText.value);
+const shouldShowPreview = computed(
+  () => hasGlyphs.value && hasSampleText.value
+);
 </script>
 
 <style scoped>
@@ -109,7 +124,9 @@ const sampleTextLines = computed(() => sampleText.value?.split('\n') || []);
   display: block; /* Each line on its own row */
   white-space: nowrap; /* Keep characters on the same line initially */
   margin-bottom: 8px; /* Space between lines */
-  line-height: calc(v-bind(previewGlyphHeight) * 1px + 8px); /* Adjust line height based on glyph height + margin */
+  line-height: calc(
+    v-bind(previewGlyphHeight) * 1px + 8px
+  ); /* Adjust line height based on glyph height + margin */
 }
 
 /* Restore preview-glyph-wrapper */

@@ -8,60 +8,72 @@
           <v-text-field
             label="Font Name"
             :model-value="headerData.font_name || ''"
-            @update:model-value="$emit('update:headerField', { field: 'font_name', value: $event })"
             hint="Enter the font name"
             persistent-hint
+            @update:model-value="
+              $emit('update:headerField', { field: 'font_name', value: $event })
+            "
           ></v-text-field>
           <v-text-field
             label="Version"
             :model-value="headerData.version || ''"
-            @update:model-value="$emit('update:headerField', { field: 'version', value: $event })"
             hint="Enter the font/format version"
             persistent-hint
+            @update:model-value="
+              $emit('update:headerField', { field: 'version', value: $event })
+            "
           ></v-text-field>
           <v-text-field
             label="Author"
             :model-value="headerData.author || ''"
-            @update:model-value="$emit('update:headerField', { field: 'author', value: $event })"
             hint="Enter the author's name"
             persistent-hint
+            @update:model-value="
+              $emit('update:headerField', { field: 'author', value: $event })
+            "
           ></v-text-field>
           <v-textarea
             label="Description"
             :model-value="headerData.description || ''"
-            @update:model-value="$emit('update:headerField', { field: 'description', value: $event })"
             hint="Enter an optional description"
             persistent-hint
             rows="3"
+            @update:model-value="
+              $emit('update:headerField', {
+                field: 'description',
+                value: $event,
+              })
+            "
           ></v-textarea>
           <v-text-field
             label="Default Size (WxH)"
             :model-value="defaultSizeInput"
-            @update:model-value="defaultSizeInput = $event"
-            @change="handleDefaultSizeChange" 
-            :error-messages="defaultSizeError" 
+            :error-messages="defaultSizeError"
             placeholder="e.g., 5x7"
             hint="Default WxH for new glyphs"
             persistent-hint
+            @update:model-value="defaultSizeInput = $event"
+            @change="handleDefaultSizeChange"
           ></v-text-field>
         </v-form>
       </v-col>
 
       <v-col cols="12" md="6">
         <h3>Default Palette</h3>
-        <p class="text-caption mb-2">Defines default colors used by glyphs unless they have their own palette.</p>
-        
-        <PaletteEditor 
-           :entries="headerData.default_palette?.entries || {}"
-           @update:palette="handleDefaultPaletteUpdate"
-        />
+        <p class="text-caption mb-2">
+          Defines default colors used by glyphs unless they have their own
+          palette.
+        </p>
 
+        <PaletteEditor
+          :entries="headerData.default_palette?.entries || {}"
+          @update:palette="handleDefaultPaletteUpdate"
+        />
       </v-col>
     </v-row>
-
   </v-container>
   <v-container v-else>
-     <p>No header data available.</p>
+    <p>No header data available.</p>
   </v-container>
 </template>
 
@@ -74,7 +86,7 @@ const props = defineProps({
   headerData: {
     type: Object,
     required: true,
-  }
+  },
 });
 
 // Define the events that this component can emit
@@ -85,14 +97,18 @@ const defaultSizeInput = ref('');
 const defaultSizeError = ref('');
 
 // Watch for changes in the incoming header data to update the local input
-watch(() => props.headerData.default_size, (newSize) => {
-  if (newSize) {
-    defaultSizeInput.value = `${newSize.width}x${newSize.height}`;
-  } else {
-    defaultSizeInput.value = ''; // Clear if size is null/undefined
-  }
-  defaultSizeError.value = ''; // Clear error on data change
-}, { immediate: true, deep: true }); // Use deep watch for object
+watch(
+  () => props.headerData.default_size,
+  (newSize) => {
+    if (newSize) {
+      defaultSizeInput.value = `${newSize.width}x${newSize.height}`;
+    } else {
+      defaultSizeInput.value = ''; // Clear if size is null/undefined
+    }
+    defaultSizeError.value = ''; // Clear error on data change
+  },
+  { immediate: true, deep: true }
+); // Use deep watch for object
 
 // Validate and emit default size changes
 function handleDefaultSizeChange() {
@@ -115,7 +131,10 @@ function handleDefaultSizeChange() {
       defaultSizeError.value = 'Width and height must be positive numbers.';
     } else {
       // Emit the structured size object
-      emit('update:headerField', { field: 'default_size', value: { width, height } });
+      emit('update:headerField', {
+        field: 'default_size',
+        value: { width, height },
+      });
     }
   } else {
     defaultSizeError.value = 'Invalid format. Use WxH (e.g., 5x7).';
@@ -124,17 +143,16 @@ function handleDefaultSizeChange() {
 
 // Function to handle updates from the PaletteEditor
 function handleDefaultPaletteUpdate(newEntries) {
-   // Reconstruct the full default_palette object before emitting
-   // (In case default_palette had other metadata, though unlikely now)
-   const currentPalette = props.headerData.default_palette || {};
-   emit('update:headerField', { 
-     field: 'default_palette', 
-     value: { ...currentPalette, entries: newEntries } 
-   });
+  // Reconstruct the full default_palette object before emitting
+  // (In case default_palette had other metadata, though unlikely now)
+  const currentPalette = props.headerData.default_palette || {};
+  emit('update:headerField', {
+    field: 'default_palette',
+    value: { ...currentPalette, entries: newEntries },
+  });
 }
-
 </script>
 
 <style scoped>
 /* Keep styles if needed, but palette-specific ones are now in PaletteEditor */
-</style> 
+</style>

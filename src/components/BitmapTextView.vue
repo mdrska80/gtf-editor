@@ -5,9 +5,9 @@
       v-if="bitmap"
       ref="bitmapTextAreaRef"
       :value="formattedBitmap"
-      @input="handleInput"
-      rows="15" 
+      rows="15"
       class="editable-bitmap-area"
+      @input="handleInput"
     ></textarea>
     <p v-else>(No bitmap data)</p>
   </div>
@@ -20,8 +20,8 @@ const props = defineProps({
   bitmap: {
     type: Array, // Array of strings
     required: true,
-    default: () => []
-  }
+    default: () => [],
+  },
 });
 
 const emit = defineEmits(['update:bitmap']);
@@ -40,10 +40,10 @@ function handleInput(event) {
   const textarea = event.target; // Use event.target for immediate access
   const cursorStart = textarea.selectionStart;
   const cursorEnd = textarea.selectionEnd;
-  
+
   const newText = textarea.value; // Get the full current text
   const newBitmapArray = newText.split('\n');
-  
+
   // Emit the updated array upwards
   emit('update:bitmap', newBitmapArray);
 
@@ -59,7 +59,6 @@ function handleInput(event) {
     }
   });
 }
-
 </script>
 
 <style scoped>
@@ -73,21 +72,21 @@ function handleInput(event) {
 
 /* Style the textarea */
 .editable-bitmap-area {
-  width: 100%; 
+  width: 100%;
   background-color: rgb(var(--v-theme-surface));
   color: rgb(var(--v-theme-on-surface));
   padding: 10px;
   border: 0px solid rgb(var(--v-border-color));
   border-radius: 4px;
   font-family: monospace;
-  white-space: pre; 
+  white-space: pre;
   overflow-x: auto;
   box-sizing: border-box;
   resize: vertical;
 }
 
 h4 {
-    margin-bottom: 8px;
-    color: rgb(var(--v-theme-on-surface));
+  margin-bottom: 8px;
+  color: rgb(var(--v-theme-on-surface));
 }
-</style> 
+</style>

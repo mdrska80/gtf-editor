@@ -2,43 +2,48 @@
   <v-col cols="12" md="6">
     <h3>Metadata</h3>
     <v-form @submit.prevent>
-      <v-text-field 
-        label="Glyph Name" 
-        :model-value="glyphData.name" 
-        @update:model-value="$emit('update:glyphField', { field: 'name', value: $event })"
-        v-show="false" 
+      <v-text-field
+        v-show="false"
+        label="Glyph Name"
+        :model-value="glyphData.name"
+        @update:model-value="
+          $emit('update:glyphField', { field: 'name', value: $event })
+        "
       ></v-text-field>
 
-      <v-text-field 
-        label="Character" 
-        :model-value="glyphData.char_repr || ''" 
-        @update:model-value="handleCharReprInput"
+      <v-text-field
+        label="Character"
+        :model-value="glyphData.char_repr || ''"
         placeholder="Single character"
         counter
-        class="prominent-char-input" 
+        class="prominent-char-input"
+        @update:model-value="handleCharReprInput"
       ></v-text-field>
 
-
-      <v-text-field 
-        label="Unicode"         
-        :model-value="glyphData.unicode || ''" 
-        @update:model-value="$emit('update:glyphField', { field: 'unicode', value: $event })"
-        placeholder="U+XXXX"
-        hint="Format: U+XXXX" 
+      <v-text-field
         v-show="true"
-        >
-        <template v-slot:append-inner>
-          <span class="text-caption text-grey">(ALT+{{ unicodeDecimalValue }})</span>
+        label="Unicode"
+        :model-value="glyphData.unicode || ''"
+        placeholder="U+XXXX"
+        hint="Format: U+XXXX"
+        @update:model-value="
+          $emit('update:glyphField', { field: 'unicode', value: $event })
+        "
+      >
+        <template #append-inner>
+          <span class="text-caption text-grey">
+            (ALT+{{ unicodeDecimalValue }})
+          </span>
         </template>
       </v-text-field>
 
-      <v-text-field 
-        label="Size (WxH)" 
-        v-model="sizeInput" 
-        @change="handleSizeChange" 
-        :error-messages="sizeError" 
+      <v-text-field
+        v-model="sizeInput"
+        label="Size (WxH)"
+        :error-messages="sizeError"
         placeholder="e.g., 5x7"
         hint="Enter width x height"
+        @change="handleSizeChange"
       ></v-text-field>
     </v-form>
   </v-col>
@@ -50,8 +55,8 @@ import { ref, watch, computed } from 'vue';
 const props = defineProps({
   glyphData: {
     type: Object,
-    required: true
-  }
+    required: true,
+  },
 });
 
 const emit = defineEmits(['update:glyphField']);
@@ -71,7 +76,7 @@ const unicodeDecimalValue = computed(() => {
     const decimalValue = parseInt(hexPart, 16);
     // Check if parsing resulted in a valid number
     if (isNaN(decimalValue)) {
-        return '';
+      return '';
     }
     return decimalValue.toString(); // Return decimal value as string
   } catch (e) {
@@ -80,16 +85,24 @@ const unicodeDecimalValue = computed(() => {
 });
 
 // Watcher for the Size Prop to update the local text input
-watch(() => props.glyphData?.size, (newSize) => {
-  if (newSize && newSize.width !== undefined && newSize.height !== undefined) {
-    // Update the local text input field when the prop changes
-    sizeInput.value = `${newSize.width}x${newSize.height}`;
-    sizeError.value = ''; // Clear error if size becomes valid
-  } else {
-    // Clear the input if the size prop becomes null or invalid
-    sizeInput.value = '';
-  }
-}, { deep: true, immediate: true });
+watch(
+  () => props.glyphData?.size,
+  (newSize) => {
+    if (
+      newSize &&
+      newSize.width !== undefined &&
+      newSize.height !== undefined
+    ) {
+      // Update the local text input field when the prop changes
+      sizeInput.value = `${newSize.width}x${newSize.height}`;
+      sizeError.value = ''; // Clear error if size becomes valid
+    } else {
+      // Clear the input if the size prop becomes null or invalid
+      sizeInput.value = '';
+    }
+  },
+  { deep: true, immediate: true }
+);
 
 function handleCharReprInput(newValue) {
   emit('update:glyphField', { field: 'char_repr', value: newValue });
@@ -108,7 +121,7 @@ function handleCharReprInput(newValue) {
         emit('update:glyphField', { field: 'unicode', value: '' });
       }
     } catch (error) {
-      console.error("Error calculating Unicode:", error);
+      console.error('Error calculating Unicode:', error);
       emit('update:glyphField', { field: 'unicode', value: '' }); // Clear on error
     }
   } else {
@@ -152,8 +165,8 @@ function handleSizeChange() {
 }
 
 .prominent-char-input :deep(.v-field__input) {
-    padding-top: 8px; /* Adjust padding for larger font */
-    padding-bottom: 8px;
+  padding-top: 8px; /* Adjust padding for larger font */
+  padding-bottom: 8px;
 }
 
 /* Optional: Add a subtle background or border */
@@ -162,4 +175,4 @@ function handleSizeChange() {
   background-color: #f0f0f0;
 }
 */
-</style> 
+</style>

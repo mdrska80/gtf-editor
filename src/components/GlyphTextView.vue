@@ -13,8 +13,8 @@ const props = defineProps({
   glyphData: {
     type: Object, // Expecting the full Glyph object from Rust
     required: true,
-    default: null
-  }
+    default: null,
+  },
 });
 
 // Format the entire glyph data into GTF text format
@@ -24,7 +24,7 @@ const formattedGlyphText = computed(() => {
   }
 
   const g = props.glyphData;
-  let lines = [];
+  const lines = [];
 
   // Start
   lines.push(`GLYPH ${g.name || 'Unnamed'}`);
@@ -41,11 +41,14 @@ const formattedGlyphText = computed(() => {
   }
 
   // Palette
-  let hasPalette = g.palette && g.palette.entries && Object.keys(g.palette.entries).length > 0;
+  const hasPalette =
+    g.palette && g.palette.entries && Object.keys(g.palette.entries).length > 0;
   if (hasPalette) {
     lines.push('PALETTE');
     // Sort palette entries by character for consistency
-    const sortedEntries = Object.entries(g.palette.entries).sort(([charA], [charB]) => charA.localeCompare(charB));
+    const sortedEntries = Object.entries(g.palette.entries).sort(
+      ([charA], [charB]) => charA.localeCompare(charB)
+    );
     for (const [char, color] of sortedEntries) {
       lines.push(`${char} ${color}`);
     }
@@ -53,15 +56,16 @@ const formattedGlyphText = computed(() => {
   }
 
   // DATA keyword
-  let hasBitmap = g.bitmap && g.bitmap.length > 0;
-  let hasSize = g.size && g.size.width !== undefined && g.size.height !== undefined;
+  const hasBitmap = g.bitmap && g.bitmap.length > 0;
+  const hasSize =
+    g.size && g.size.width !== undefined && g.size.height !== undefined;
   if (hasSize || hasBitmap) {
-      lines.push('DATA');
-      // Bitmap
-      if (hasBitmap) {
-        lines.push(...g.bitmap);
-      }
-      lines.push('END DATA');
+    lines.push('DATA');
+    // Bitmap
+    if (hasBitmap) {
+      lines.push(...g.bitmap);
+    }
+    lines.push('END DATA');
   }
 
   // End
@@ -69,7 +73,6 @@ const formattedGlyphText = computed(() => {
 
   return lines.join('\n');
 });
-
 </script>
 
 <style scoped>
@@ -92,7 +95,7 @@ pre {
 }
 
 h4 {
-    margin-bottom: 8px;
-    color: rgb(var(--v-theme-on-surface));
+  margin-bottom: 8px;
+  color: rgb(var(--v-theme-on-surface));
 }
-</style> 
+</style>

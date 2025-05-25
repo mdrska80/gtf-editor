@@ -3,55 +3,62 @@
     <!-- Cell Size Controls -->
     <div class="mb-2">
       <span class="mr-2 text-caption">Cell Size:</span>
-      <v-btn icon="mdi-minus" size="x-small" @click="decreaseCellSize" :disabled="editorCellSize <= 8"></v-btn>
+      <v-btn
+        icon="mdi-minus"
+        size="x-small"
+        :disabled="editorCellSize <= 8"
+        @click="decreaseCellSize"
+      ></v-btn>
       <span class="mx-2">{{ editorCellSize }}px</span>
       <v-btn icon="mdi-plus" size="x-small" @click="increaseCellSize"></v-btn>
     </div>
 
     <!-- Grid Container -->
-    <div 
+    <div
       v-if="size && bitmap"
-      :style="{ 
+      :style="{
         backgroundColor: 'rgb(var(--v-theme-surface))',
-        padding: '5px', 
-        borderRadius: '4px', 
-        display: 'flex', 
-        justifyContent: 'center' 
+        padding: '5px',
+        borderRadius: '4px',
+        display: 'flex',
+        justifyContent: 'center',
       }"
       @contextmenu.prevent
     >
-      <div 
+      <div
         class="bitmap-grid"
         :style="gridStyle"
-        @mouseup="stopDrawing" 
-        @mouseleave="stopDrawing" 
+        @mouseup="stopDrawing"
+        @mouseleave="stopDrawing"
         @contextmenu.prevent
       >
         <template v-for="(row, y) in bitmap" :key="y">
-          <v-tooltip 
-            v-for="(char, x) in row.split('')" 
+          <v-tooltip
+            v-for="(char, x) in row.split('')"
             :key="`${x}-${y}`"
             :text="isCharValid(char) ? '' : `Char \'${char}\' not in palette!`"
             :disabled="isCharValid(char)"
             location="top"
           >
-            <template v-slot:activator="{ props: tooltipProps }">
-              <v-btn 
-                v-bind="tooltipProps" 
+            <template #activator="{ props: tooltipProps }">
+              <v-btn
+                v-bind="tooltipProps"
                 class="bitmap-cell"
                 :class="{
-                  'highlight-current': hoveredX === x && hoveredY === y
+                  'highlight-current': hoveredX === x && hoveredY === y,
                 }"
                 :style="[getCellStyle(char), cellDynamicSizeStyle]"
-                icon 
-                variant="flat" 
-                size="x-small" 
+                icon
+                variant="flat"
+                size="x-small"
                 :ripple="false"
-                @mousedown.prevent="startDrawing(x, y, $event)" 
-                @mouseenter="handleCellHover(x, y)" 
+                @mousedown.prevent="startDrawing(x, y, $event)"
+                @mouseenter="handleCellHover(x, y)"
                 @mouseleave="handleCellLeave"
               >
-                <span v-if="!isCharValid(char)" class="invalid-char-indicator">{{ char }}</span>
+                <span v-if="!isCharValid(char)" class="invalid-char-indicator">
+                  {{ char }}
+                </span>
               </v-btn>
             </template>
           </v-tooltip>
@@ -67,24 +74,24 @@ import { ref, computed, watch } from 'vue';
 const props = defineProps({
   bitmap: {
     type: Array,
-    required: true
+    required: true,
   },
   size: {
     type: Object,
-    required: true
+    required: true,
   },
   palette: {
     type: Array,
-    required: true
+    required: true,
   },
   selectedDrawChar: {
     type: String,
-    required: true
+    required: true,
   },
   selectedEraseChar: {
     type: String,
-    required: true
-  }
+    required: true,
+  },
 });
 
 const emit = defineEmits(['update:bitmap']);
@@ -109,7 +116,7 @@ const gridStyle = computed(() => {
     'grid-template-rows': `repeat(${height}, ${cellSizePx})`,
     gap: '1px',
     'justify-content': 'start',
-    'align-content': 'start'
+    'align-content': 'start',
   };
 });
 
@@ -134,7 +141,8 @@ function decreaseCellSize() {
 // Drawing functions
 function startDrawing(x, y, event) {
   isDrawing.value = true;
-  currentCharToDraw.value = event.button === 0 ? props.selectedDrawChar : props.selectedEraseChar;
+  currentCharToDraw.value =
+    event.button === 0 ? props.selectedDrawChar : props.selectedEraseChar;
   updateCell(x, y, currentCharToDraw.value);
 }
 
@@ -157,10 +165,10 @@ function stopDrawing() {
 
 function updateCell(x, y, charToUse) {
   if (!props.bitmap || y >= props.bitmap.length) return;
-  
+
   const newBitmap = [...props.bitmap];
-  let rowChars = newBitmap[y].split('');
-  
+  const rowChars = newBitmap[y].split('');
+
   if (x < rowChars.length && rowChars[x] !== charToUse) {
     rowChars[x] = charToUse;
     newBitmap[y] = rowChars.join('');
@@ -169,23 +177,23 @@ function updateCell(x, y, charToUse) {
 }
 
 // Validation functions
-const validDrawChars = computed(() => props.palette.map(p => p.char));
+const validDrawChars = computed(() => props.palette.map((p) => p.char));
 
 function isCharValid(char) {
   return validDrawChars.value.includes(char);
 }
 
 function getCellStyle(char) {
-  const paletteEntry = props.palette.find(p => p.char === char);
+  const paletteEntry = props.palette.find((p) => p.char === char);
   if (paletteEntry) {
     return {
       'background-color': paletteEntry.color,
-      'border': '1px solid rgba(var(--v-theme-on-surface), 0.12)'
+      border: '1px solid rgba(var(--v-theme-on-surface), 0.12)',
     };
   }
   return {
     'background-color': 'rgb(var(--v-theme-surface-variant))',
-    'border': '1px dashed rgb(var(--v-theme-error))'
+    border: '1px dashed rgb(var(--v-theme-error))',
   };
 }
 </script>
@@ -231,4 +239,4 @@ function getCellStyle(char) {
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
-</style> 
+</style>

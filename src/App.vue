@@ -1,170 +1,239 @@
 <script setup>
-import { ref, computed, watch, nextTick } from "vue";
+import { ref, computed, watch, nextTick, defineAsyncComponent } from 'vue';
 import HeaderEditor from './components/HeaderEditor.vue';
-import GlyphEditor from './components/GlyphEditor.vue';
-import GlyphPreviewBar from './components/GlyphPreviewBar.vue';
-import GlyphPreview from './components/GlyphPreview.vue';
-import LanguageCheckDialog from './components/LanguageCheckDialog.vue';
 import FileOperations from './components/FileOperations.vue';
-import UIDemoPage from './components/UIDemoPage.vue';
 import AppSidebar from './components/AppSidebar.vue';
-import FontPreviewPage from './components/FontPreviewPage.vue';
+import GlobalErrorHandler from './components/GlobalErrorHandler.vue';
 import { useGtfStore } from './composables/useGtfStore';
 import { useGlyphDisplay } from './composables/useGlyphDisplay';
+import { useTheme } from './composables/useTheme';
+import { useOptimizedPalette } from './composables/usePerformanceOptimization';
+import { useErrorHandling } from './composables/useErrorHandling';
 
-// --- Instantiate Store ---
+// Dynamic imports for heavy components (code splitting)
+const GlyphEditor = defineAsyncComponent(
+  () => import('./components/GlyphEditor.vue')
+);
+const LanguageCheckDialog = defineAsyncComponent(
+  () => import('./components/LanguageCheckDialog.vue')
+);
+const FontPreviewPage = defineAsyncComponent(
+  () => import('./components/FontPreviewPage.vue')
+);
+const UIDemoPage = defineAsyncComponent(
+  () => import('./components/UIDemoPage.vue')
+);
+
+// Initialize composables
 const store = useGtfStore();
-
-// --- Instantiate Display Logic ---
 const display = useGlyphDisplay(computed(() => store.gtfData.value?.glyphs));
+const theme = useTheme();
+const errorHandler = useErrorHandling();
 
-// --- Local UI State / Refs --- 
-// State that App.vue still needs to manage directly
-// const currentView = ref(null); // Moved to store
-// const gtfData = ref(null); // Moved to store
-// const currentError = ref(null); // Moved to store
-// const selectedGlyphName = ref(null); // Moved to store
-// const currentFilePath = ref(null); // Moved to store
-const languageDialogVisible = ref(false); // State for dialog visibility
-const isDarkMode = ref(true); // Theme state
-const glyphEditorRef = ref(null); // Ref for GlyphEditor component instance (for scrolling)
-// const isSimplePreviewMode = ref(true); // Moved to display composable
+// Local UI state
+const languageDialogVisible = ref(false);
+const glyphEditorRef = ref(null);
 
-// --- Character Sets Data (Moved to display composable) ---
-// const commonLowercase = ...
-// const languageCharacterSets = ...
+// Optimized computed properties
+const processedDefaultPalette = useOptimizedPalette(store.gtfData);
 
-// --- Computed Properties (Derived from store or local state) ---
+// Cached computed properties for template expressions
+const appTitle = computed(() => {
+  const baseTitle = 'GTF Editor';
+  const fontName = store.gtfData.value?.header?.font_name;
+  const filePath = store.currentFilePath.value;
+  const fileName = filePath
+    ? filePath.split('/').pop() || filePath.split('\\').pop() || '(New File)'
+    : '(New File)';
 
-// selectedGlyphData now comes from store
-
-// Process default palette once for passing down (Depends on store.gtfData)
-const processedDefaultPalette = computed(() => {
-    return store.gtfData.value?.header?.default_palette?.entries 
-           ? Object.entries(store.gtfData.value.header.default_palette.entries).map(([char, color]) => ({char, color})) 
-           : [];
+  return fontName
+    ? `${baseTitle} - ${fontName} (${fileName})`
+    : `${baseTitle} ${fileName}`;
 });
 
-// --- Sorting/Grouping Computed Properties (Moved to display composable) ---
-// const sortedGlyphs = computed(() => { ... });
-// const groupedGlyphs = computed(() => { ... });
+const hasGtfData = computed(() => !!store.gtfData.value);
+const isHeaderView = computed(() => store.currentView.value === 'header');
+const isGlyphView = computed(() => store.currentView.value === 'glyph');
+const isUIDemoView = computed(() => store.currentView.value === 'ui-demo');
+const isFontPreviewView = computed(
+  () => store.currentView.value === 'font-preview'
+);
+const hasSelectedGlyph = computed(() => !!store.selectedGlyphData.value);
 
-// --- Watchers ---
+// Optimized glyph palette computation (memoized to prevent re-computation)
+const selectedGlyphPalette = computed(() => {
+  const glyphData = store.selectedGlyphData.value;
+  if (!glyphData || !glyphData.palette) return [];
 
-// Scroll to editor when a new glyph is selected (especially after adding)
-watch(store.selectedGlyphName, (newName, oldName) => {
-  // Check if view should change implicitly (e.g., from Font Preview)
+  const entries = glyphData.palette.entries;
+  return entries
+    ? Object.entries(entries).map(([char, color]) => ({ char, color }))
+    : [];
+});
+
+// Watchers
+watch(store.selectedGlyphName, (newName) => {
   if (newName && store.currentView.value === 'font-preview') {
-    store.currentView.value = 'glyph'; // Switch back to editor
+    store.currentView.value = 'glyph';
   }
-  // Scroll to editor
-  if (newName && store.currentView.value === 'glyph') { 
-    console.log("App.vue Watcher: selectedGlyphName changed to", newName, "Scrolling into view.");
+
+  if (newName && store.currentView.value === 'glyph') {
     nextTick(() => {
-        if (glyphEditorRef.value?.$el) {
-            glyphEditorRef.value.$el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const glyphEditor = glyphEditorRef.value;
+      if (
+        glyphEditor &&
+        typeof glyphEditor === 'object' &&
+        '$el' in glyphEditor
+      ) {
+        const element = glyphEditor.$el;
+        if (element && typeof element.scrollIntoView === 'function') {
+          element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
+      }
     });
   }
 });
 
-// --- Functions (UI related or bridging to store) ---
-
-// These functions are now primarily in the store
-// function newFile() { ... }
-// function selectGlyph(glyphName) { ... }
-// function selectHeader() { ... }
-// function addGlyph() { ... }
-// function removeGlyph() { ... }
-// function updateHeaderData({ field, value }) { ... }
-// function updateGlyphData({ field, value, action }) { ... }
-// function addGlyphForChar(char) { ... } 
-// function handleEditGlyph(glyphName) { ... } // Combined into store.selectGlyph
-
-// Functions still needed in App.vue
+// Navigation functions
 function navigateToUIDemoPage() {
-  store.currentView.value = 'ui-demo'; // Update view via store state
-  store.selectedGlyphName.value = null; // Deselect any glyph via store state
+  store.currentView.value = 'ui-demo';
+  store.selectedGlyphName.value = null;
 }
 
 function navigateToFontPreview() {
-  store.currentView.value = 'font-preview'; // Set new view
-  // Keep selected glyph name if user wants to jump back? Or clear it?
-  // store.selectedGlyphName.value = null; 
+  store.currentView.value = 'font-preview';
 }
 
-// --- Event Handlers (Bridging UI events to store actions) ---
-
-// Handler for FileOperations updates (Needs adjustment to use store.setGtfData)
-function handleFileLoadUpdate({ gtfData: newData, currentFilePath: newPath, currentView: newView, selectedGlyphName: newGlyphName }) {
-    console.log("App.vue: handleFileLoadUpdate received", { newData, newPath, newView, newGlyphName });
-    store.setGtfData(newData, newPath, newView || 'header', newGlyphName); 
+// Event handlers with error handling
+async function handleFileLoadUpdate(updates) {
+  try {
+    const {
+      gtfData: newData,
+      currentFilePath: newPath,
+      currentView: newView,
+      selectedGlyphName: newGlyphName,
+    } = updates;
+    if (newData !== undefined) {
+      store.setGtfData(newData, newPath, newView || 'header', newGlyphName);
+    } else if (newView !== undefined) {
+      store.currentView.value = newView;
+    } else if (newGlyphName !== undefined) {
+      store.selectedGlyphName.value = newGlyphName;
+    }
+  } catch (error) {
+    errorHandler.addError(error, {
+      type: 'file_operation',
+      context: 'File load update',
+      userMessage: 'Failed to update file data. Please try again.',
+    });
+  }
 }
 
-// Update the store when FileOperations saves and gets a new path
 function handleFilePathUpdate(newPath) {
+  try {
     store.currentFilePath.value = newPath;
+  } catch (error) {
+    errorHandler.addError(error, {
+      type: 'file_operation',
+      context: 'File path update',
+      userMessage: 'Failed to update file path.',
+    });
+  }
 }
 
+// Accessibility function for skip link
+function skipToMainContent() {
+  const mainContent = document.getElementById('main-content');
+  if (mainContent) {
+    mainContent.focus();
+    mainContent.scrollIntoView({ behavior: 'smooth' });
+  }
+}
 </script>
 
 <template>
-  <v-app id="inspire" :theme="isDarkMode ? 'dark' : 'light'">
-    <v-app-bar :theme="isDarkMode ? 'dark' : 'light'">
-      <v-app-bar-title>
-        GTF Editor 
-        {{ store.gtfData.value?.header?.font_name ? `- ${store.gtfData.value.header.font_name}` : '' }}
-        {{ store.currentFilePath.value ? ` (${store.currentFilePath.value.split('/').pop().split('\\').pop()})` : '(New File)' }}
+  <v-app id="inspire" :theme="theme.currentTheme.value">
+    <!-- Skip to main content link for keyboard users -->
+    <a
+      href="#main-content"
+      class="skip-link"
+      @click.prevent="skipToMainContent"
+    >
+      Skip to main content
+    </a>
+
+    <!-- Global Error Handler -->
+    <GlobalErrorHandler />
+
+    <v-app-bar
+      :theme="theme.currentTheme.value"
+      role="banner"
+      aria-label="Main navigation"
+    >
+      <v-app-bar-title role="heading" aria-level="1">
+        {{ appTitle }}
       </v-app-bar-title>
 
-      <v-btn prepend-icon="mdi-file-outline" @click="store.newFile">
+      <v-btn
+        prepend-icon="mdi-file-outline"
+        aria-label="Create a new GTF file"
+        @click="store.newFile"
+      >
         New File
       </v-btn>
+
       <FileOperations
         :gtf-data="store.gtfData.value"
-        :current-file-path="store.currentFilePath.value"
+        :current-file-path="store.currentFilePath.value || undefined"
         @update:gtfData="handleFileLoadUpdate({ gtfData: $event })"
         @update:currentFilePath="handleFilePathUpdate"
         @update:currentView="handleFileLoadUpdate({ currentView: $event })"
-        @update:selectedGlyphName="handleFileLoadUpdate({ selectedGlyphName: $event })"
+        @update:selectedGlyphName="
+          handleFileLoadUpdate({ selectedGlyphName: $event })
+        "
         @file-load-success="handleFileLoadUpdate"
       />
-      <v-btn 
-        prepend-icon="mdi-translate" 
+
+      <v-btn
+        prepend-icon="mdi-translate"
+        :disabled="!hasGtfData"
+        :aria-label="
+          hasGtfData
+            ? 'Open language check dialog'
+            : 'Language check disabled - no font loaded'
+        "
+        title="Language Check"
         @click="languageDialogVisible = true"
-        :disabled="!store.gtfData.value"
-      >
-      </v-btn>
+      />
 
-      <v-btn 
-        prepend-icon="mdi-format-text-variant-outline" 
-        @click="navigateToFontPreview" 
-        :disabled="!store.gtfData.value" 
+      <v-btn
+        prepend-icon="mdi-format-text-variant-outline"
+        :disabled="!hasGtfData"
+        :aria-label="
+          hasGtfData ? 'Preview font' : 'Font preview disabled - no font loaded'
+        "
         title="Preview Font"
-      >
-      </v-btn>
+        @click="navigateToFontPreview"
+      />
 
-      <v-btn 
-        :prepend-icon="isDarkMode ? 'mdi-weather-sunny' : 'mdi-weather-night'"
-        @click="isDarkMode = !isDarkMode"
-        :title="isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
-      >
-      </v-btn>
-      <!--
-      <v-btn @click="navigateToUIDemoPage">
-        UIDemoPage
-      </v-btn>
-      -->
+      <v-btn
+        :prepend-icon="theme.themeIcon.value"
+        :title="theme.themeToggleTitle.value"
+        :aria-label="theme.themeToggleTitle.value"
+        @click="theme.toggleTheme"
+      />
     </v-app-bar>
 
     <AppSidebar
-      :active-view="store.currentView.value"
-      :gtf-data-available="!!store.gtfData.value"
-      :selected-glyph-name="store.selectedGlyphName.value"
+      :active-view="store.currentView.value || undefined"
+      :gtf-data-available="hasGtfData"
+      :selected-glyph-name="store.selectedGlyphName.value || undefined"
       :is-simple-preview-mode="display.isSimplePreviewMode.value"
       :grouped-glyphs="display.groupedGlyphs.value"
       :glyph-count="display.sortedGlyphs.value.length"
       :processed-default-palette="processedDefaultPalette"
+      role="navigation"
+      aria-label="Font structure navigation"
       @select-header="store.selectHeader"
       @select-glyph="store.selectGlyph"
       @add-glyph="store.addGlyph"
@@ -172,57 +241,199 @@ function handleFilePathUpdate(newPath) {
       @toggle-sidebar-view="display.toggleSidebarView"
     />
 
-    <v-main>
-      <v-container v-if="store.currentError.value">
-        <v-alert type="error" variant="tonal" prominent border="start" closable @click:close="store.clearError">
-          {{ store.currentError.value }}
-        </v-alert>
-      </v-container>
-      
-      <HeaderEditor 
-        v-if="store.currentView.value === 'header' && store.gtfData.value"
+    <v-main
+      id="main-content"
+      role="main"
+      aria-label="Main content area"
+      tabindex="-1"
+    >
+      <HeaderEditor
+        v-if="isHeaderView && hasGtfData"
         :header-data="store.gtfData.value.header"
+        role="region"
+        aria-label="Font header editor"
         @update:header-field="store.updateHeaderData"
       />
-      
-      <GlyphEditor
-        v-if="store.currentView.value === 'glyph' && store.selectedGlyphData.value"
-        ref="glyphEditorRef"
-        :key="store.selectedGlyphName.value"
-        :glyph-data="store.selectedGlyphData.value"
-        :palette="store.selectedGlyphData.value.palette?.entries ? Object.entries(store.selectedGlyphData.value.palette.entries).map(([char, color]) => ({ char, color })) : []"
-        :header-default-palette="processedDefaultPalette"
-        @update:glyph-field="store.updateGlyphData"
-      />
 
-      <UIDemoPage v-if="store.currentView.value === 'ui-demo'"/>
+      <!-- Suspense wrapper for async GlyphEditor -->
+      <Suspense v-if="isGlyphView && hasSelectedGlyph">
+        <template #default>
+          <GlyphEditor
+            ref="glyphEditorRef"
+            :key="store.selectedGlyphName.value || 'default'"
+            :glyph-data="store.selectedGlyphData.value || {}"
+            :palette="selectedGlyphPalette"
+            :header-default-palette="processedDefaultPalette"
+            role="region"
+            :aria-label="`Glyph editor for ${store.selectedGlyphName.value || 'selected glyph'}`"
+            @update:glyph-field="store.updateGlyphData"
+          />
+        </template>
+        <template #fallback>
+          <v-container>
+            <v-row justify="center">
+              <v-col cols="auto">
+                <v-progress-circular
+                  indeterminate
+                  color="primary"
+                  aria-label="Loading glyph editor"
+                ></v-progress-circular>
+                <span class="ml-3" aria-live="polite">
+                  Loading Glyph Editor...
+                </span>
+              </v-col>
+            </v-row>
+          </v-container>
+        </template>
+      </Suspense>
 
-      <FontPreviewPage v-if="store.currentView.value === 'font-preview'"/>
+      <!-- Suspense wrapper for async UIDemoPage -->
+      <Suspense v-if="isUIDemoView">
+        <template #default>
+          <UIDemoPage role="region" aria-label="UI demonstration page" />
+        </template>
+        <template #fallback>
+          <v-container>
+            <v-row justify="center">
+              <v-col cols="auto">
+                <v-progress-circular
+                  indeterminate
+                  color="primary"
+                  aria-label="Loading UI demo"
+                ></v-progress-circular>
+                <span class="ml-3" aria-live="polite">Loading UI Demo...</span>
+              </v-col>
+            </v-row>
+          </v-container>
+        </template>
+      </Suspense>
 
-      <v-container v-if="!store.currentView.value && store.gtfData.value">
-        <p>Select the Font Header or a Glyph from the list to start editing.</p>
+      <!-- Suspense wrapper for async FontPreviewPage -->
+      <Suspense v-if="isFontPreviewView">
+        <template #default>
+          <FontPreviewPage role="region" aria-label="Font preview page" />
+        </template>
+        <template #fallback>
+          <v-container>
+            <v-row justify="center">
+              <v-col cols="auto">
+                <v-progress-circular
+                  indeterminate
+                  color="primary"
+                  aria-label="Loading font preview"
+                ></v-progress-circular>
+                <span class="ml-3" aria-live="polite">
+                  Loading Font Preview...
+                </span>
+              </v-col>
+            </v-row>
+          </v-container>
+        </template>
+      </Suspense>
+
+      <v-container v-if="!store.currentView.value && hasGtfData">
+        <div role="status" aria-live="polite">
+          <p>
+            Select the Font Header or a Glyph from the list to start editing.
+          </p>
+        </div>
       </v-container>
-       <v-container v-if="!store.gtfData.value">
-        <p>Open a .gtf file to begin.</p>
-        <p v-if="store.currentError.value" class="error--text">{{ store.currentError.value }}</p>
-      </v-container>
 
+      <v-container v-if="!hasGtfData">
+        <div role="status" aria-live="polite">
+          <p>Open a .gtf file to begin.</p>
+        </div>
+      </v-container>
     </v-main>
 
-    <LanguageCheckDialog 
-      v-model="languageDialogVisible"
-      :glyphs="store.gtfData.value?.glyphs || []"
-      :character-sets="display.languageCharacterSets"
-      @add-glyph-for-char="store.addGlyphForChar"
-      @edit-glyph="store.selectGlyph"
-    />
-
+    <!-- Suspense wrapper for async LanguageCheckDialog -->
+    <Suspense>
+      <template #default>
+        <LanguageCheckDialog
+          v-model="languageDialogVisible"
+          :glyphs="store.gtfData.value?.glyphs || []"
+          :character-sets="display.languageCharacterSets"
+          role="dialog"
+          aria-label="Language character check dialog"
+          @add-glyph-for-char="store.addGlyphForChar"
+          @edit-glyph="store.selectGlyph"
+        />
+      </template>
+      <template #fallback>
+        <!-- Silent fallback for dialog - no loading indicator needed -->
+      </template>
+    </Suspense>
   </v-app>
 </template>
 
 <style scoped>
-/* Styles removed */
-</style>
-<style>
-/* Global styles if needed */
+/* Skip link for keyboard navigation */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-on-primary));
+  padding: 8px;
+  text-decoration: none;
+  border-radius: 4px;
+  z-index: 10001;
+  font-weight: bold;
+  transition: top 0.3s ease;
+}
+
+.skip-link:focus {
+  top: 6px;
+  outline: 2px solid rgb(var(--v-theme-on-primary));
+  outline-offset: 2px;
+}
+
+/* Focus management for main content */
+#main-content:focus {
+  outline: none;
+}
+
+/* Enhanced focus indicators for better accessibility */
+:deep(.v-btn:focus) {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .skip-link {
+    border: 2px solid;
+  }
+
+  :deep(.v-app-bar) {
+    border-bottom: 2px solid;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .skip-link {
+    transition: none;
+  }
+
+  :deep(.v-progress-circular) {
+    animation: none;
+  }
+}
+
+/* Screen reader improvements */
+:deep([aria-hidden='true']) {
+  speak: none;
+}
+
+/* Ensure proper focus order */
+:deep(.v-app-bar .v-btn) {
+  order: unset;
+}
+
+/* Loading states accessibility */
+:deep(.v-progress-circular[aria-label]) {
+  /* Ensure progress indicators are announced properly */
+  speak: always;
+}
 </style>

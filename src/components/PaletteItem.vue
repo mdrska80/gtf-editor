@@ -1,32 +1,33 @@
 <template>
   <v-list-item class="palette-item">
-    <template v-slot:prepend>
+    <template #prepend>
       <div class="color-swatch" :style="{ backgroundColor: color }"></div>
     </template>
-    
+
     <v-list-item-title>
-       <code class="char-code">{{ char }}</code> : {{ color }}
+      <code class="char-code">{{ char }}</code>
+      : {{ color }}
     </v-list-item-title>
 
-    <template v-slot:append>
-       <!-- Edit Button (emits 'edit' event) -->
-       <v-btn 
-         icon="mdi-pencil" 
-         variant="text" 
-         size="small" 
-         @click="$emit('edit', { char, color })"
-         title="Edit Color"
-         class="mr-1"
-       ></v-btn>
-       <!-- Remove Button (emits 'remove' event) -->
-       <v-btn 
-         icon="mdi-delete" 
-         variant="text" 
-         size="small" 
-         @click="$emit('remove', char)"
-         title="Remove Color"
-         color="error"
-       ></v-btn>
+    <template #append>
+      <!-- Edit Button (emits 'edit' event) -->
+      <v-btn
+        icon="mdi-pencil"
+        variant="text"
+        size="small"
+        title="Edit Color"
+        class="mr-1"
+        @click="$emit('edit', { char, color })"
+      ></v-btn>
+      <!-- Remove Button (emits 'remove' event) -->
+      <v-btn
+        icon="mdi-delete"
+        variant="text"
+        size="small"
+        title="Remove Color"
+        color="error"
+        @click="$emit('remove', char)"
+      ></v-btn>
     </template>
   </v-list-item>
 </template>
@@ -37,16 +38,15 @@ import { defineProps, defineEmits } from 'vue';
 const props = defineProps({
   char: {
     type: String,
-    required: true
+    required: true,
   },
   color: {
     type: String,
-    required: true
-  }
+    required: true,
+  },
 });
 
 defineEmits(['remove', 'edit']);
-
 </script>
 
 <style scoped>
@@ -68,4 +68,4 @@ defineEmits(['remove', 'edit']);
   border-radius: 3px;
   margin-right: 5px;
 }
-</style> 
+</style>
