@@ -1,6 +1,7 @@
 <template>
   <v-navigation-drawer permanent theme="dark">
     <v-list density="compact">
+      <!-- === NAVIGATION SECTION === -->
       <v-list-item
         title="Font Header"
         :active="activeView === 'header'"
@@ -9,37 +10,29 @@
         @click="$emit('select-header')"
       ></v-list-item>
 
-      <!-- View Toggle Button -->
-      <v-list-item @click="$emit('toggle-sidebar-view')">
-        <template #prepend>
-          <v-icon
-            :icon="isSimplePreviewMode ? 'mdi-view-module' : 'mdi-view-grid-plus'"
-          ></v-icon>
-        </template>
-        <v-list-item-title>
-          {{ isSimplePreviewMode ? 'Compact Grid' : 'Large Cards' }}
-        </v-list-item-title>
-      </v-list-item>
+      <v-divider class="my-2"></v-divider>
 
-      <v-divider></v-divider>
-      <v-list-subheader>
-        GLYPHS ({{ filteredGlyphCount }})
-        <v-chip
-          v-if="shouldUseVirtualScrolling"
-          size="x-small"
-          color="primary"
-          class="ml-2"
-        >
-          Virtual
-        </v-chip>
-        <v-chip
-          v-if="searchQuery"
-          size="x-small"
-          color="secondary"
-          class="ml-1"
-        >
-          Filtered
-        </v-chip>
+      <!-- === GLYPH MANAGEMENT SECTION === -->
+      <v-list-subheader class="section-header">
+        <div class="d-flex align-center justify-space-between w-100">
+          <span>GLYPHS ({{ filteredGlyphCount }})</span>
+          <div class="d-flex gap-1">
+            <v-chip
+              v-if="shouldUseVirtualScrolling"
+              size="x-small"
+              color="primary"
+            >
+              Virtual
+            </v-chip>
+            <v-chip
+              v-if="searchQuery"
+              size="x-small"
+              color="secondary"
+            >
+              Filtered
+            </v-chip>
+          </div>
+        </div>
       </v-list-subheader>
 
       <!-- Quick Search -->
@@ -57,31 +50,48 @@
         ></v-text-field>
       </v-list-item>
 
-      <!-- Add/Remove Buttons -->
-      <v-list-item v-if="gtfDataAvailable">
-        <v-btn
-          block
-          prepend-icon="mdi-plus-box-outline"
-          variant="text"
-          size="small"
-          class="mb-1"
-          @click="$emit('add-glyph')"
-        >
-          Add New
-        </v-btn>
-        <v-btn
-          block
-          prepend-icon="mdi-minus-box-outline"
-          variant="text"
-          size="small"
-          color="error"
-          :disabled="!selectedGlyphName"
-          @click="$emit('remove-glyph')"
-        >
-          Remove Selected
-        </v-btn>
+      <!-- Management Controls -->
+      <v-list-item v-if="gtfDataAvailable" class="controls-container">
+        <div class="controls-grid">
+          <!-- Left side: Add/Remove buttons -->
+          <div class="button-group">
+            <v-btn
+              size="small"
+              variant="outlined"
+              color="success"
+              prepend-icon="mdi-plus"
+              class="action-btn"
+              @click="$emit('add-glyph')"
+            >
+              Add
+            </v-btn>
+            <v-btn
+              size="small"
+              variant="outlined"
+              color="error"
+              prepend-icon="mdi-minus"
+              class="action-btn"
+              :disabled="!selectedGlyphName"
+              @click="$emit('remove-glyph')"
+            >
+              Remove
+            </v-btn>
+          </div>
+
+          <!-- Right side: View toggle -->
+          <v-btn
+            size="small"
+            variant="text"
+            :prepend-icon="isSimplePreviewMode ? 'mdi-view-module' : 'mdi-view-grid-plus'"
+            class="view-toggle-btn"
+            @click="$emit('toggle-sidebar-view')"
+          >
+            {{ isSimplePreviewMode ? 'Grid' : 'Cards' }}
+          </v-btn>
+        </div>
       </v-list-item>
-      <v-divider v-if="gtfDataAvailable"></v-divider>
+
+      <v-divider class="my-2"></v-divider>
 
       <!-- === GLYPH GRID DISPLAY === -->
 
@@ -481,5 +491,53 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Organized Header Styles */
+.section-header {
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.9) !important;
+  margin: 8px 0 4px 0;
+  padding: 0 16px;
+}
+
+.controls-container {
+  padding: 4px 16px 8px 16px !important;
+  min-height: auto !important;
+}
+
+.controls-grid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.button-group {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+}
+
+.action-btn {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.view-toggle-btn {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.7);
+  min-width: auto;
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+.view-toggle-btn:hover {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.05);
 }
 </style>
