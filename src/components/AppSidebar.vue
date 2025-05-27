@@ -53,7 +53,7 @@
       <!-- Management Controls -->
       <v-list-item v-if="gtfDataAvailable" class="controls-container">
         <div class="controls-grid">
-          <!-- Left side: Add/Remove buttons -->
+          <!-- Add/Remove buttons -->
           <div class="button-group">
             <v-btn
               size="small"
@@ -77,17 +77,6 @@
               Remove
             </v-btn>
           </div>
-
-          <!-- Right side: View toggle -->
-          <v-btn
-            size="small"
-            variant="text"
-            :prepend-icon="isSimplePreviewMode ? 'mdi-view-module' : 'mdi-view-grid-plus'"
-            class="view-toggle-btn"
-            @click="$emit('toggle-sidebar-view')"
-          >
-            {{ isSimplePreviewMode ? 'Grid' : 'Cards' }}
-          </v-btn>
         </div>
       </v-list-item>
 
@@ -510,9 +499,7 @@ watch(
 .controls-grid {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   width: 100%;
-  gap: 8px;
 }
 
 .button-group {
@@ -526,18 +513,5 @@ watch(
   min-width: 0;
   font-size: 0.75rem;
   font-weight: 500;
-}
-
-.view-toggle-btn {
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.7);
-  min-width: auto;
-  padding: 0 8px;
-  flex-shrink: 0;
-}
-
-.view-toggle-btn:hover {
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(255, 255, 255, 0.05);
 }
 </style>
