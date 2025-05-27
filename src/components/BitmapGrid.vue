@@ -43,6 +43,27 @@
                 {{ showGridLines ? 'Hide' : 'Show' }} Grid
               </v-btn>
             </div>
+
+            <!-- Real-time Preview Panel (moved here) -->
+            <div v-if="size && bitmap" class="preview-panel-controls">
+              <div class="preview-header">
+                <span class="preview-title">Preview</span>
+                <span class="preview-size">{{ size?.width || 0 }}×{{ size?.height || 0 }}</span>
+              </div>
+              <div class="preview-content">
+                <div class="actual-size-preview" :style="previewGridStyle">
+                  <template v-for="(row, y) in bitmap" :key="y">
+                    <template v-for="(char, x) in row.split('')" :key="`${y}-${x}`">
+                      <div 
+                        class="preview-pixel" 
+                        :style="getPreviewPixelStyle(char)"
+                      ></div>
+                    </template>
+                  </template>
+                </div>
+                <div class="preview-label">Actual Size</div>
+              </div>
+            </div>
           </div>
         </v-card-text>
       </v-card>
@@ -52,7 +73,7 @@
     <div class="grid-container" @contextmenu.prevent>
       <div
         v-if="size && bitmap"
-        class="bitmap-grid-wrapper"
+        class="bitmap-grid-wrapper dark-editor-theme"
         :class="{ 'show-grid-lines': showGridLines }"
       >
         <!-- Grid Background Pattern -->
@@ -185,6 +206,16 @@ const cellDynamicSizeStyle = computed(() => ({
   minHeight: `${editorCellSize.value}px`,
 }));
 
+// Preview grid style for actual-size preview
+const previewGridStyle = computed(() => {
+  if (!props.size) return {};
+  const { width, height } = props.size;
+  return {
+    gridTemplateColumns: `repeat(${width}, 2px)`,
+    gridTemplateRows: `repeat(${height}, 2px)`,
+  };
+});
+
 // Enhanced Control Functions
 function increaseCellSize() {
   if (editorCellSize.value < 80) {
@@ -265,6 +296,18 @@ function getCellStyle(char) {
     backgroundColor: 'rgb(var(--v-theme-surface-variant))',
   };
 }
+
+function getPreviewPixelStyle(char) {
+  const paletteEntry = props.palette.find((p) => p.char === char);
+  if (paletteEntry) {
+    return {
+      backgroundColor: paletteEntry.color,
+    };
+  }
+  return {
+    backgroundColor: 'rgb(var(--v-theme-error))',
+  };
+}
 </script>
 
 <style scoped>
@@ -315,21 +358,21 @@ function getCellStyle(char) {
 .bitmap-grid-wrapper {
   position: relative;
   background: linear-gradient(135deg, 
-    rgba(var(--v-theme-surface), 0.9) 0%,
-    rgba(var(--v-theme-surface-bright), 0.95) 100%);
+    var(--editor-bg) 0%,
+    var(--editor-surface) 100%);
   border-radius: 12px;
   box-shadow: 
-    0 4px 24px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(var(--v-theme-outline), 0.2);
+    0 4px 24px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--editor-outline);
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .bitmap-grid-wrapper:hover {
   box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
   transform: translateY(-2px);
 }
 
@@ -339,12 +382,12 @@ function getCellStyle(char) {
 }
 
 .grid-background {
-  opacity: 0.6;
+  opacity: 0.3;
   transition: opacity 0.3s ease;
 }
 
 .show-grid-lines .grid-background {
-  opacity: 1;
+  opacity: 0.6;
 }
 
 .bitmap-cell {
@@ -451,5 +494,80 @@ function getCellStyle(char) {
     min-width: auto;
     font-size: 0.8rem;
   }
+}
+
+/* Dark Editor Theme - Override global theme for better contrast */
+.dark-editor-theme {
+  --editor-bg: #1a1a1a;
+  --editor-surface: #2d2d2d;
+  --editor-surface-bright: #3a3a3a;
+  --editor-outline: #4a4a4a;
+  --editor-text: #ffffff;
+  --editor-text-secondary: #cccccc;
+}
+
+/* Preview Panel Styles (moved to controls) */
+.preview-panel-controls {
+  display: flex;
+  flex-direction: column;
+  background: rgba(var(--v-theme-surface-bright), 0.6);
+  border-radius: 8px;
+  padding: 8px;
+  border: 1px solid rgba(var(--v-theme-outline), 0.3);
+  min-width: 100px;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(var(--v-theme-outline), 0.2);
+}
+
+.preview-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgb(var(--v-theme-on-surface));
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.preview-size {
+  font-size: 0.65rem;
+  color: rgb(var(--v-theme-on-surface-variant));
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.preview-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.actual-size-preview {
+  display: grid;
+  gap: 0;
+  background: #000000;
+  border: 1px solid rgba(var(--v-theme-outline), 0.4);
+  padding: 3px;
+  border-radius: 3px;
+}
+
+.preview-pixel {
+  width: 2px;
+  height: 2px;
+  min-width: 2px;
+  min-height: 2px;
+  background: transparent;
+}
+
+.preview-label {
+  font-size: 0.6rem;
+  color: rgb(var(--v-theme-on-surface-variant));
+  text-align: center;
+  opacity: 0.8;
 }
 </style>
