@@ -249,14 +249,15 @@ watch(
 
 /* Compact Grid Layout (Primary View) */
 .compact-glyph-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-start;
   gap: 4px;
   padding: 4px;
 }
 
 .compact-glyph-item {
-  aspect-ratio: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -266,6 +267,7 @@ watch(
   cursor: pointer;
   transition: all 0.2s ease;
   padding: 2px;
+  flex-shrink: 0;
 }
 
 .compact-glyph-item:hover {

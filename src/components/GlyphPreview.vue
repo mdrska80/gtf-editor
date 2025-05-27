@@ -62,10 +62,8 @@ const containerStyle = computed(() => {
   const height = props.glyph.size?.height || 1;
   const aspectRatio = width / height;
 
-  const calculatedWidth = Math.max(
-    width,
-    Math.round(props.targetHeight * aspectRatio)
-  );
+  // Calculate width to maintain aspect ratio based on target height
+  const calculatedWidth = Math.round(props.targetHeight * aspectRatio);
 
   return {
     width: `${calculatedWidth}px`,
@@ -76,6 +74,11 @@ const containerStyle = computed(() => {
     cursor: 'pointer',
     margin: '2px',
     backgroundColor: 'transparent',
+    // Ensure the container respects its calculated dimensions
+    minWidth: `${calculatedWidth}px`,
+    minHeight: `${props.targetHeight}px`,
+    maxWidth: `${calculatedWidth}px`,
+    maxHeight: `${props.targetHeight}px`,
   };
 });
 
