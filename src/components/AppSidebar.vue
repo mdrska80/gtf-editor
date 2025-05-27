@@ -23,7 +23,7 @@
 
       <v-divider></v-divider>
       <v-list-subheader>
-        GLYPHS ({{ glyphCount }})
+        GLYPHS ({{ filteredGlyphCount }})
         <v-chip
           v-if="shouldUseVirtualScrolling"
           size="x-small"
@@ -32,7 +32,30 @@
         >
           Virtual
         </v-chip>
+        <v-chip
+          v-if="searchQuery"
+          size="x-small"
+          color="secondary"
+          class="ml-1"
+        >
+          Filtered
+        </v-chip>
       </v-list-subheader>
+
+      <!-- Quick Search -->
+      <v-list-item v-if="gtfDataAvailable && glyphCount > 0" class="search-container">
+        <v-text-field
+          v-model="searchQuery"
+          density="compact"
+          variant="outlined"
+          placeholder="Search glyphs..."
+          prepend-inner-icon="mdi-magnify"
+          clearable
+          hide-details
+          class="search-field"
+          :class="{ 'search-active': searchQuery }"
+        ></v-text-field>
+      </v-list-item>
 
       <!-- Add/Remove Buttons -->
       <v-list-item v-if="gtfDataAvailable">
@@ -66,7 +89,7 @@
       <div v-if="shouldUseVirtualScrolling" class="virtual-scroll-wrapper">
         <VirtualScrollList
           ref="virtualScrollRef"
-          :grouped-items="groupedGlyphs"
+          :grouped-items="filteredGroupedGlyphs"
           :container-height="virtualScrollHeight"
           :item-height="isSimplePreviewMode ? 50 : 70"
           :group-header-height="32"
@@ -103,7 +126,7 @@
 
       <!-- Small list: Compact Grid Layout (Preferred View) -->
       <div v-else class="glyph-container pa-1">
-        <template v-for="group in groupedGlyphs" :key="group.name">
+        <template v-for="group in filteredGroupedGlyphs" :key="group.name">
           <v-list-subheader class="group-header">
             {{ group.name }} ({{ group.glyphs?.length || 0 }})
           </v-list-subheader>
@@ -155,7 +178,11 @@
         <p v-if="!gtfDataAvailable" class="text-caption pa-2">
           (No file loaded)
         </p>
-        <p v-else-if="(groupedGlyphs || []).length === 0" class="text-caption pa-2">
+        <p v-else-if="searchQuery && filteredGlyphCount === 0" class="text-caption pa-2 search-no-results">
+          <v-icon size="small" class="mr-1">mdi-magnify-remove-outline</v-icon>
+          No glyphs match "{{ searchQuery }}"
+        </p>
+        <p v-else-if="(filteredGroupedGlyphs || []).length === 0" class="text-caption pa-2">
           (No glyphs in file)
         </p>
       </div>
@@ -197,11 +224,47 @@ const emit = defineEmits([
 
 const virtualScrollRef = ref(null);
 
+// Search functionality
+const searchQuery = ref('');
+
+// Filter glyphs based on search query
+const filteredGroupedGlyphs = computed(() => {
+  if (!searchQuery.value) {
+    return props.groupedGlyphs;
+  }
+
+  const query = searchQuery.value.toLowerCase().trim();
+  if (!query) {
+    return props.groupedGlyphs;
+  }
+
+  return props.groupedGlyphs
+    .map(group => ({
+      ...group,
+      glyphs: (group.glyphs || []).filter(glyph => {
+        // Search in multiple fields
+        const searchFields = [
+          glyph.name || '',
+          glyph.char_repr || '',
+          glyph.unicode || '',
+        ].join(' ').toLowerCase();
+        
+        return searchFields.includes(query);
+      })
+    }))
+    .filter(group => group.glyphs.length > 0); // Only show groups with matching glyphs
+});
+
+// Count filtered glyphs
+const filteredGlyphCount = computed(() => {
+  return filteredGroupedGlyphs.value.reduce((total, group) => total + group.glyphs.length, 0);
+});
+
 // Virtual scrolling threshold - use virtual scrolling for large lists
 const VIRTUAL_SCROLL_THRESHOLD = 200;
 
 const shouldUseVirtualScrolling = computed(() => {
-  return props.glyphCount > VIRTUAL_SCROLL_THRESHOLD;
+  return filteredGlyphCount.value > VIRTUAL_SCROLL_THRESHOLD;
 });
 
 const virtualScrollHeight = computed(() => {
@@ -396,5 +459,27 @@ watch(
     grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
     gap: 5px;
   }
+}
+
+/* Search functionality styles */
+.search-container {
+  padding: 8px 16px 4px 16px !important;
+  min-height: auto !important;
+}
+
+.search-field {
+  font-size: 0.875rem;
+}
+
+.search-field.search-active {
+  /* Subtle highlight when search is active */
+}
+
+.search-no-results {
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>
