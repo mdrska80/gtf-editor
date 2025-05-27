@@ -86,7 +86,6 @@
                 <div v-if="!isCharValid(char)" class="invalid-indicator">
                   <v-icon size="x-small" color="error">mdi-alert</v-icon>
                 </div>
-                <div v-else class="cell-char">{{ char }}</div>
               </div>
               
               <!-- Hover Overlay -->
@@ -402,15 +401,6 @@ function getCellStyle(char) {
   justify-content: center;
   position: relative;
   z-index: 2;
-}
-
-.cell-char {
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  pointer-events: none;
 }
 
 .cell-hover-overlay {
