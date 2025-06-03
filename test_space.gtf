@@ -1,0 +1,24 @@
+HEADER
+FONT TestFont
+VERSION 1.0
+END HEADER
+
+GLYPH NewGlyph1
+UNICODE U+0020
+CHAR  
+SIZE 2x8
+PALETTE
+# #FFFFFF
+. #000000
+END PALETTE
+DATA
+..
+..
+..
+..
+..
+..
+..
+..
+END DATA
+END GLYPH NewGlyph1 

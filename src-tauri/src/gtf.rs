@@ -200,7 +200,9 @@ pub fn parse_gtf_content(content: &str) -> Result<GtfDocument, String> {
                      current_state = ParseState::InBitmap;
                 }
                  else {
-                    let meta_result = parse_glyph_meta_line(trimmed_line, glyph);
+                    // For CHAR lines, use original untrimmed line to preserve spaces
+                    let line_to_parse = if line.trim_start().starts_with("CHAR") { line } else { trimmed_line };
+                    let meta_result = parse_glyph_meta_line(line_to_parse, glyph);
                      if let Err(e) = meta_result {
                         return Err(format!("Line {}: {}", current_line_num, e));
                     } 
@@ -355,35 +357,78 @@ fn parse_header_line(line: &str, header: &mut GtfHeader) -> Result<(), String> {
      Ok(())
 }
 
-fn parse_glyph_meta_line(line: &str, glyph: &mut Glyph) -> Result<(), String> {
-     let parts: Vec<&str> = line.splitn(2, ' ').collect();
-    if parts.len() != 2 {
+fn parse_glyph_meta_line(line: &str, glyph: &mut Glyph) -> Result<(), String>
+{
+    // Special handling for CHAR lines before general parsing
+    if line.starts_with("CHAR")
+    {
+        // DEBUG: Print exact line details for troubleshooting
+        println!("DEBUG CHAR line: length={}, chars={:?}, bytes={:?}", 
+                line.len(), 
+                line.chars().collect::<Vec<char>>(),
+                line.as_bytes());
+        
+        if line.len() < 5
+        {
+            return Err(format!("Invalid CHAR format: '{}'. Expected 'CHAR <character>' (missing character).", line));
+        }
+        else if line.len() >= 5 && line.starts_with("CHAR ")
+        {
+            let char_value = &line[5..]; // Everything after "CHAR "
+            println!("DEBUG char_value: '{:?}', trimmed: '{:?}', is_empty: {}", 
+                    char_value, char_value.trim(), char_value.trim().is_empty());
+            
+            if char_value.trim().is_empty()
+            {
+                // This is a space character (possibly with trailing whitespace)
+                glyph.char_repr = Some(' ');
+                return Ok(());
+            }
+            else
+            {
+                let chars: Vec<char> = char_value.chars().collect();
+                if chars.len() != 1
+                {
+                    return Err(format!("Invalid CHAR format: '{}'. Expected exactly one character after 'CHAR ', found {} characters.", line, chars.len()));
+                }
+                glyph.char_repr = Some(chars[0]);
+                return Ok(());
+            }
+        }
+        else
+        {
+            return Err(format!("Invalid CHAR format: '{}'. Expected 'CHAR <character>' (missing space after CHAR).", line));
+        }
+    }
+
+    // General key-value parsing for other metadata
+    let parts: Vec<&str> = line.splitn(2, ' ').collect();
+    if parts.len() != 2
+    {
         return Err(format!("Invalid glyph metadata line format: '{}'. Expected 'KEY value'.", line));
     }
     let key = parts[0];
-    let value = parts[1].trim();
 
-     match key {
-         "UNICODE" => {
-             if !value.starts_with("U+") {
-                 return Err(format!("Invalid UNICODE format: '{}'. Expected 'U+XXXX'.", value));
-             }
-             glyph.unicode = Some(value.to_string());
-         }
-         "CHAR" => {
-             let chars: Vec<char> = value.chars().collect();
-             if chars.len() != 1 {
-                  return Err(format!("Invalid CHAR format: '{}'. Expected a single character.", value));
-             }
-             glyph.char_repr = Some(chars[0]);
-         }
-         "SIZE" => {
-             let size = Size::from_str(value)?;
-             glyph.size = Some(size);
-         }
-         _ => return Err(format!("Unknown or invalid glyph metadata key: '{}'", key)),
-     }
-     Ok(())
+    match key
+    {
+        "UNICODE" =>
+        {
+            let value = parts[1].trim();
+            if !value.starts_with("U+")
+            {
+                return Err(format!("Invalid UNICODE format: '{}'. Expected 'U+XXXX'.", value));
+            }
+            glyph.unicode = Some(value.to_string());
+        }
+        "SIZE" =>
+        {
+            let value = parts[1].trim();
+            let size = Size::from_str(value)?;
+            glyph.size = Some(size);
+        }
+        _ => return Err(format!("Unknown or invalid glyph metadata key: '{}'", key)),
+    }
+    Ok(())
 }
 
 fn parse_palette_line(line: &str, palette: &mut Palette) -> Result<(), String> {

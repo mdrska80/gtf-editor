@@ -76,6 +76,7 @@ const emit = defineEmits([
   'file-load-success',
 ]);
 
+/** @type {import('vue').Ref<string | null>} */
 const error = ref(null);
 const isLoading = ref(false);
 const importDialogVisible = ref(false);
@@ -119,8 +120,8 @@ async function handleOpenFile() {
         selectedGlyphName: null,
       });
     }
-  } catch (error) {
-    const errorString = String(error);
+  } catch (err) {
+    const errorString = String(err);
     console.error('Error loading or parsing file:', errorString);
 
     emit('file-load-success', {
@@ -156,8 +157,8 @@ async function handleSaveFile() {
       document: props.gtfData,
     });
     console.log('File saved successfully (overwrite).');
-  } catch (error) {
-    const errorString = String(error);
+  } catch (saveErr) {
+    const errorString = String(saveErr);
     console.error('Error saving file (overwrite):', errorString);
     error.value = `Error saving file: ${errorString}`;
     alert(`Failed to save file: ${errorString}`);
@@ -193,8 +194,8 @@ async function handleSaveFileAs() {
       });
       emit('update:currentFilePath', savePath);
     }
-  } catch (error) {
-    const errorString = String(error);
+  } catch (err) {
+    const errorString = String(err);
     console.error('Error saving file:', errorString);
     error.value = `Error saving file: ${errorString}`;
     alert(`Failed to save file: ${errorString}`);
