@@ -362,12 +362,6 @@ fn parse_glyph_meta_line(line: &str, glyph: &mut Glyph) -> Result<(), String>
     // Special handling for CHAR lines before general parsing
     if line.starts_with("CHAR")
     {
-        // DEBUG: Print exact line details for troubleshooting
-        println!("DEBUG CHAR line: length={}, chars={:?}, bytes={:?}", 
-                line.len(), 
-                line.chars().collect::<Vec<char>>(),
-                line.as_bytes());
-        
         if line.len() < 5
         {
             return Err(format!("Invalid CHAR format: '{}'. Expected 'CHAR <character>' (missing character).", line));
@@ -375,8 +369,6 @@ fn parse_glyph_meta_line(line: &str, glyph: &mut Glyph) -> Result<(), String>
         else if line.len() >= 5 && line.starts_with("CHAR ")
         {
             let char_value = &line[5..]; // Everything after "CHAR "
-            println!("DEBUG char_value: '{:?}', trimmed: '{:?}', is_empty: {}", 
-                    char_value, char_value.trim(), char_value.trim().is_empty());
             
             if char_value.trim().is_empty()
             {
