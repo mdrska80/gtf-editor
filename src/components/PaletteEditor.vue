@@ -9,7 +9,7 @@
         </div>
         <v-btn
           prepend-icon="mdi-plus-circle"
-          variant="outlined"
+          variant="elevated"
           size="small"
           color="primary"
           @click="openAddDialog"
@@ -73,7 +73,7 @@
         <p class="text-grey-lighten-1 mb-3">No colors defined</p>
         <v-btn
           prepend-icon="mdi-plus-circle"
-          variant="outlined"
+          variant="elevated"
           color="primary"
           @click="openAddDialog"
         >

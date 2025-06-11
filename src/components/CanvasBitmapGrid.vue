@@ -1,60 +1,63 @@
 <template>
   <div class="canvas-bitmap-editor">
-    <!-- Enhanced Controls Header -->
-    <div class="editor-controls mb-4">
-      <v-card class="controls-card" variant="outlined">
-        <v-card-text class="pa-3">
-          <div class="d-flex align-center justify-space-between">
-            <div class="control-group">
-              <span class="control-label">Cell Size</span>
-              <div class="size-controls">
+    <!-- Canvas Controls - Compact Style -->
+    <div class="editor-controls mb-3">
+      <v-card class="controls-card-compact" variant="outlined">
+        <v-card-text class="controls-content-compact">
+          <div class="controls-row-compact">
+            <div class="control-group-compact">
+              <span class="control-label-readable">Cell Size</span>
+              <div class="size-controls-compact">
                 <v-btn
-                  icon="mdi-minus"
+                  prepend-icon="mdi-minus"
+                  variant="elevated"
                   size="small"
-                  variant="outlined"
                   :disabled="editorCellSize <= 4"
                   @click="decreaseCellSize"
-                ></v-btn>
-                <v-chip class="size-display mx-2" label>{{ editorCellSize }}px</v-chip>
+                  class="cell-size-btn-compact"
+                >
+                </v-btn>
+                <v-chip class="size-display-compact mx-2" label>{{ editorCellSize }}px</v-chip>
                 <v-btn
-                  icon="mdi-plus"
+                  prepend-icon="mdi-plus"
+                  variant="elevated"
                   size="small"
-                  variant="outlined"
                   :disabled="editorCellSize >= 32"
                   @click="increaseCellSize"
-                ></v-btn>
+                  class="cell-size-btn-compact"
+                >
+                </v-btn>
               </div>
             </div>
             
-            <div class="control-group">
-              <span class="control-label">Grid {{ size?.width || 0 }}×{{ size?.height || 0 }}</span>
-              <v-chip class="cell-count" size="small" color="primary" variant="outlined">
+            <div class="control-group-compact">
+              <span class="control-label-readable">Grid {{ size?.width || 0 }}×{{ size?.height || 0 }}</span>
+              <v-chip class="cell-count-compact" size="small" color="primary" variant="tonal">
                 {{ (size?.width || 0) * (size?.height || 0) }} cells
-              </v-chip>
-              <v-chip class="render-mode" size="small" color="success" variant="flat">
-                <v-icon size="small" start>mdi-canvas</v-icon>
-                Canvas Mode
               </v-chip>
             </div>
 
-            <div class="control-group">
+            <div class="control-group-compact">
               <v-btn
                 prepend-icon="mdi-grid"
-                variant="outlined"
+                variant="elevated"
                 size="small"
+                color="secondary"
                 @click="toggleGridLines"
+                class="grid-toggle-btn-compact"
               >
                 {{ showGridLines ? 'Hide' : 'Show' }} Grid
               </v-btn>
             </div>
 
             <!-- Performance Indicator -->
-            <div class="control-group">
+            <div class="control-group-compact">
               <v-chip 
                 :color="performanceColor" 
                 size="small" 
-                variant="outlined"
+                variant="tonal"
                 :prepend-icon="performanceIcon"
+                class="performance-chip-compact"
               >
                 {{ performanceText }}
               </v-chip>
@@ -185,7 +188,7 @@ const performanceText = computed(() => {
   return 'Heavy';
 });
 
-// Cursor Style
+// Cursor Style with Color Preview
 const cursorStyle = computed(() => {
   if (!cursorPosition.value) return { display: 'none' };
   
@@ -194,17 +197,24 @@ const cursorStyle = computed(() => {
   const gridOffset = showGridLines.value ? 1 : 0;
   const wrapperPadding = 16; // Account for canvas-wrapper padding
   
+  // Get the color that will be applied
+  const previewChar = props.selectedDrawChar;
+  const paletteEntry = props.palette?.find(p => p.char === previewChar);
+  const previewColor = paletteEntry?.color || '#888888';
+  
   return {
     position: 'absolute',
     left: `${pos.x * cellSize + pos.x * gridOffset + gridOffset + wrapperPadding}px`,
     top: `${pos.y * cellSize + pos.y * gridOffset + gridOffset + wrapperPadding}px`,
     width: `${cellSize}px`,
     height: `${cellSize}px`,
-    border: '2px solid rgb(var(--v-theme-primary))',
-    backgroundColor: 'rgba(var(--v-theme-primary), 0.2)',
+    border: '2px solid #ffffff',
+    backgroundColor: previewColor,
+    opacity: '0.7',
     pointerEvents: 'none',
     borderRadius: '2px',
     zIndex: 10,
+    boxShadow: '0 0 4px rgba(0,0,0,0.3)',
   };
 });
 
@@ -403,6 +413,175 @@ function getCellColor(char) {
   return paletteEntry ? paletteEntry.color : 'transparent';
 }
 
+// ============================================================================
+// EXPORT FUNCTIONALITY
+// ============================================================================
+
+/**
+ * Create a clean export canvas without UI overlays (grid lines, cursors, etc.)
+ * @param {number} scaleFactor - Multiplier for output resolution (1x, 2x, 4x, etc.)
+ * @param {string} format - 'png' or 'bmp'
+ * @param {string} backgroundColor - Background color for BMP format (default: white)
+ * @returns {HTMLCanvasElement} Clean canvas ready for export
+ */
+function createExportCanvas(scaleFactor = 1, format = 'png', backgroundColor = '#ffffff') {
+  if (!props.size || !props.bitmap) {
+    throw new Error('No bitmap data or size available for export');
+  }
+
+  // Calculate export dimensions (no grid lines, pure bitmap cells)
+  const cellSize = Math.max(1, Math.round(editorCellSize.value * scaleFactor));
+  const exportWidth = props.size.width * cellSize;
+  const exportHeight = props.size.height * cellSize;
+
+  // Create dedicated export canvas
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = exportWidth;
+  exportCanvas.height = exportHeight;
+  const ctx = exportCanvas.getContext('2d');
+
+  if (!ctx) {
+    throw new Error('Failed to get 2D context for export canvas');
+  }
+
+  // Set background for BMP format (PNG will have transparent background)
+  if (format.toLowerCase() === 'bmp') {
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, exportWidth, exportHeight);
+  }
+
+  // Render bitmap cells (no grid lines, no UI overlays)
+  for (let y = 0; y < props.bitmap.length && y < props.size.height; y++) {
+    const row = props.bitmap[y];
+    if (typeof row === 'string') {
+      for (let x = 0; x < row.length && x < props.size.width; x++) {
+        const char = row[x];
+        const color = getCellColor(char);
+
+        // For PNG: skip transparent cells to maintain transparency
+        // For BMP: render all cells (transparent cells show background)
+        if (color && (format.toLowerCase() === 'bmp' || color !== 'transparent')) {
+          ctx.fillStyle = color === 'transparent' ? backgroundColor : color;
+          ctx.fillRect(
+            x * cellSize,
+            y * cellSize,
+            cellSize,
+            cellSize
+          );
+        }
+      }
+    }
+  }
+
+  return exportCanvas;
+}
+
+/**
+ * Export bitmap as PNG with transparency support
+ * @param {number} scaleFactor - Resolution multiplier (default: 1x)
+ * @returns {Promise<Blob>} PNG blob data
+ */
+async function exportAsPNG(scaleFactor = 1) {
+  try {
+    const exportCanvas = createExportCanvas(scaleFactor, 'png');
+    
+    return new Promise((resolve, reject) => {
+      exportCanvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error('Failed to create PNG blob'));
+        }
+      }, 'image/png', 1.0); // Maximum quality
+    });
+  } catch (error) {
+    throw new Error(`PNG export failed: ${error.message}`);
+  }
+}
+
+/**
+ * Export bitmap as BMP with solid background
+ * @param {number} scaleFactor - Resolution multiplier (default: 1x)
+ * @param {string} backgroundColor - Background color (default: white)
+ * @returns {Promise<Blob>} BMP blob data (as PNG with solid background)
+ */
+async function exportAsBMP(scaleFactor = 1, backgroundColor = '#ffffff') {
+  try {
+    const exportCanvas = createExportCanvas(scaleFactor, 'bmp', backgroundColor);
+    
+    // Note: Canvas toBlob doesn't support true BMP format
+    // We export as PNG with solid background, which is compatible for most uses
+    return new Promise((resolve, reject) => {
+      exportCanvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error('Failed to create BMP blob'));
+        }
+      }, 'image/png', 1.0);
+    });
+  } catch (error) {
+    throw new Error(`BMP export failed: ${error.message}`);
+  }
+}
+
+/**
+ * Get export data URL for preview or direct download
+ * @param {string} format - 'png' or 'bmp'
+ * @param {number} scaleFactor - Resolution multiplier
+ * @param {string} backgroundColor - Background color for BMP
+ * @returns {string} Data URL string
+ */
+function getExportDataURL(format = 'png', scaleFactor = 1, backgroundColor = '#ffffff') {
+  try {
+    const exportCanvas = createExportCanvas(scaleFactor, format, backgroundColor);
+    return exportCanvas.toDataURL('image/png', 1.0);
+  } catch (error) {
+    throw new Error(`Export data URL failed: ${error.message}`);
+  }
+}
+
+/**
+ * Get export information for UI display
+ * @param {number} scaleFactor - Resolution multiplier
+ * @returns {Object} Export dimensions and file size estimate
+ */
+function getExportInfo(scaleFactor = 1) {
+  if (!props.size) return null;
+
+  const cellSize = Math.max(1, Math.round(editorCellSize.value * scaleFactor));
+  const width = props.size.width * cellSize;
+  const height = props.size.height * cellSize;
+  
+  // Rough file size estimation (PNG is typically smaller due to compression)
+  const pixelCount = width * height;
+  const estimatedPngSizeKB = Math.round((pixelCount * 1.5) / 1024); // Rough PNG estimate
+  const estimatedBmpSizeKB = Math.round((pixelCount * 4) / 1024); // Uncompressed estimate
+
+  return {
+    dimensions: { width, height },
+    cellSize,
+    scaleFactor,
+    estimatedFileSize: {
+      png: `~${estimatedPngSizeKB}KB`,
+      bmp: `~${estimatedBmpSizeKB}KB`
+    }
+  };
+}
+
+// Expose export methods for parent components
+defineExpose({
+  exportAsPNG,
+  exportAsBMP,
+  getExportDataURL,
+  getExportInfo,
+  createExportCanvas
+});
+
+// ============================================================================
+// END EXPORT FUNCTIONALITY
+// ============================================================================
+
 // Watchers
 watch([() => props.bitmap, () => props.size, () => props.palette], () => {
   nextTick(renderCanvas);
@@ -428,42 +607,74 @@ onMounted(() => {
   user-select: none;
 }
 
-.editor-controls .controls-card {
-  background: rgba(var(--v-theme-surface-bright), 0.8);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(var(--v-theme-outline), 0.2);
+/* Compact Canvas Controls - Matching Export Style */
+.controls-card-compact {
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(var(--v-theme-outline), 0.3);
 }
 
-.control-group {
+.controls-content-compact {
+  padding: 12px !important;
+}
+
+.controls-row-compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.control-group-compact {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.control-label {
+.control-label-readable {
   font-size: 0.875rem;
-  font-weight: 500;
-  color: rgb(var(--v-theme-on-surface-variant));
+  font-weight: 600;
+  color: rgb(var(--v-theme-on-surface));
   min-width: 70px;
 }
 
-.size-controls {
+.size-controls-compact {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.size-display {
+.size-display-compact {
   font-family: 'JetBrains Mono', 'Consolas', monospace;
-  font-weight: 600;
-  min-width: 60px;
+  font-weight: 700;
+  min-width: 50px;
   text-align: center;
 }
 
-.render-mode {
+.cell-count-compact {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-weight: 600;
+}
+
+.render-mode-compact {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.grid-toggle-btn-compact {
+  font-weight: 600;
+  text-transform: none;
+  min-width: 100px;
+}
+
+.cell-size-btn-compact {
+  text-transform: none;
+  font-weight: 600;
+  min-width: 80px;
+}
+
+.performance-chip-compact {
+  font-weight: 600;
 }
 
 .canvas-container {

@@ -57,7 +57,7 @@
           <div class="button-group">
             <v-btn
               size="small"
-              variant="outlined"
+              variant="elevated"
               color="success"
               prepend-icon="mdi-plus"
               class="action-btn"
@@ -67,7 +67,7 @@
             </v-btn>
             <v-btn
               size="small"
-              variant="outlined"
+              variant="elevated"
               color="error"
               prepend-icon="mdi-minus"
               class="action-btn"

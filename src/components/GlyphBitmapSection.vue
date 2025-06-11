@@ -2,7 +2,7 @@
   <v-col cols="12">
     <h3>Bitmap</h3>
 
-    <BitmapGrid
+    <CanvasBitmapGrid
       :bitmap="glyphData.bitmap"
       :size="glyphData.size"
       :palette="palette"
@@ -25,7 +25,7 @@
 
 <script setup>
 import { defineProps, defineEmits } from 'vue';
-import BitmapGrid from './BitmapGrid.vue';
+import CanvasBitmapGrid from './CanvasBitmapGrid.vue';
 import BitmapTextView from './BitmapTextView.vue';
 import GlyphTextView from './GlyphTextView.vue';
 

@@ -30,7 +30,8 @@
     <v-btn
       :disabled="!hasDefaultPalette"
       size="small"
-      variant="outlined"
+      variant="elevated"
+      color="secondary"
       class="mb-2"
       prepend-icon="mdi-format-paint"
       title="Replace current entries with header default palette"
