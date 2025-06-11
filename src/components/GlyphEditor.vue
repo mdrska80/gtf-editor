@@ -67,8 +67,8 @@
             </div>
           </div>
 
-          <!-- Bitmap Grid -->
-          <BitmapGrid
+          <!-- Hybrid Bitmap Grid (Auto-switches DOM/Canvas based on size) -->
+          <HybridBitmapGrid
             :bitmap="glyphData.bitmap"
             :size="glyphData.size"
             :palette="palette"
@@ -107,7 +107,7 @@ import GlyphPaletteSection from './GlyphPaletteSection.vue';
 import GlyphBitmapSection from './GlyphBitmapSection.vue';
 import { useGlyphBitmapResize } from '../composables/useGlyphBitmapResize';
 import PaletteEditor from './PaletteEditor.vue';
-import BitmapGrid from './BitmapGrid.vue';
+import HybridBitmapGrid from './HybridBitmapGrid.vue';
 import BitmapTextView from './BitmapTextView.vue';
 import GlyphTextView from './GlyphTextView.vue';
 
