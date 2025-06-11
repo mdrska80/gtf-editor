@@ -168,8 +168,41 @@
                     density="compact"
                     closable
                     @click:close="exportStatus = null"
+                    class="export-status-alert"
                   >
-                    {{ exportStatus.message }}
+                    <div class="export-status-content">
+                      <div class="export-status-message">
+                        {{ exportStatus.message }}
+                      </div>
+                      <div v-if="exportStatus.type === 'success' && exportStatus.filename" class="export-status-actions mt-2">
+                        <div class="export-file-info">
+                          <v-icon size="small" class="mr-1">mdi-file-download</v-icon>
+                          <span class="export-file-path">Saved to Downloads/{{ exportStatus.filename }}</span>
+                        </div>
+                        <div class="export-action-buttons">
+                          <v-btn
+                            size="small"
+                            variant="elevated"
+                            color="success"
+                            prepend-icon="mdi-file-image"
+                            @click="openFile"
+                            class="export-action-btn"
+                          >
+                            Open File
+                          </v-btn>
+                          <v-btn
+                            size="small"
+                            variant="elevated"
+                            color="primary"
+                            prepend-icon="mdi-folder-open"
+                            @click="openDownloadsFolder"
+                            class="export-action-btn"
+                          >
+                            Open Folder
+                          </v-btn>
+                        </div>
+                      </div>
+                    </div>
                   </v-alert>
                 </div>
               </v-card-text>
@@ -324,8 +357,10 @@ async function exportAsPNG() {
 
   try {
     const blob = await canvasBitmapGridRef.value.exportAsPNG(selectedScale.value);
-    downloadBlob(blob, generateFilename('png'));
-    showExportSuccess(`PNG exported successfully (${exportInfo.value?.dimensions.width}×${exportInfo.value?.dimensions.height}px)`);
+    const filename = generateFilename('png');
+    const blobUrl = URL.createObjectURL(blob);
+    downloadBlob(blob, filename);
+    showExportSuccessWithFile(filename, 'PNG', `${exportInfo.value?.dimensions.width}×${exportInfo.value?.dimensions.height}px`, blobUrl);
   } catch (error) {
     console.error('PNG export failed:', error);
     showExportError(`PNG export failed: ${error.message}`);
@@ -345,8 +380,10 @@ async function exportAsBMP() {
 
   try {
     const blob = await canvasBitmapGridRef.value.exportAsBMP(selectedScale.value);
-    downloadBlob(blob, generateFilename('png')); // BMP exported as PNG with solid background
-    showExportSuccess(`BMP exported successfully (${exportInfo.value?.dimensions.width}×${exportInfo.value?.dimensions.height}px)`);
+    const filename = generateFilename('png'); // BMP exported as PNG with solid background
+    const blobUrl = URL.createObjectURL(blob);
+    downloadBlob(blob, filename);
+    showExportSuccessWithFile(filename, 'BMP', `${exportInfo.value?.dimensions.width}×${exportInfo.value?.dimensions.height}px`, blobUrl);
   } catch (error) {
     console.error('BMP export failed:', error);
     showExportError(`BMP export failed: ${error.message}`);
@@ -386,6 +423,46 @@ function showExportError(message) {
     type: 'error',
     message: message
   };
+}
+
+function showExportSuccessWithFile(filename, fileType, size, blobUrl) {
+  exportStatus.value = {
+    type: 'success',
+    message: `Exported ${fileType} successfully to ${filename} (${size})`,
+    filename: filename,
+    blobUrl: blobUrl
+  };
+}
+
+function openFile() {
+  if (exportStatus.value && exportStatus.value.blobUrl) {
+    // Open the image file in a new tab
+    window.open(exportStatus.value.blobUrl, '_blank');
+  } else {
+    alert('No file available to open. Please export a file first.');
+  }
+}
+
+function openDownloadsFolder() {
+  // Try different methods to open Downloads folder
+  try {
+    // Method 1: Try to open Downloads folder (modern browsers)
+    if (navigator.userAgent.includes('Chrome') || navigator.userAgent.includes('Edge')) {
+      // Chrome/Edge: Open downloads page
+      window.open('chrome://downloads/', '_blank');
+    } else if (navigator.userAgent.includes('Firefox')) {
+      // Firefox: Open downloads page
+      window.open('about:downloads', '_blank');
+    } else {
+      // Fallback: Show instructions
+      navigator.clipboard.writeText('Downloads');
+      alert('File saved to Downloads folder. Check your browser\'s download manager or navigate to your Downloads folder.');
+    }
+  } catch (error) {
+    // Fallback for any errors
+    console.log('Could not open Downloads folder automatically');
+    alert('File saved to Downloads folder. Please check your browser\'s download manager or navigate to your Downloads folder.');
+  }
 }
 
 // Watch palette changes to keep selectedDrawChar valid
@@ -591,6 +668,51 @@ watch(
 
 .export-status-compact {
   margin-top: 8px;
+}
+
+.export-status-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.export-status-message {
+  font-weight: 600;
+}
+
+.export-status-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(var(--v-theme-surface), 0.7);
+  border-radius: 6px;
+  border: 1px solid rgba(var(--v-theme-outline), 0.2);
+}
+
+.export-file-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.export-file-path {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(var(--v-theme-on-surface-variant));
+}
+
+.export-action-btn {
+  text-transform: none;
+  font-weight: 600;
+  min-width: 100px;
+}
+
+.export-action-buttons {
+  display: flex;
+  gap: 8px;
 }
 
 /* Responsive adjustments */
