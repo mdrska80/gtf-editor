@@ -395,20 +395,53 @@ async function exportAsBMP() {
 // Helper functions
 function generateFilename(extension) {
   const glyphName = props.glyphData?.name || 'glyph';
+  // Sanitize the glyph name for use in filenames
+  const sanitizedName = glyphName
+    .replace(/[^\w\-_.]/g, '_') // Replace non-alphanumeric chars with underscore
+    .replace(/_{2,}/g, '_') // Replace multiple underscores with single
+    .replace(/^_|_$/g, '') // Remove leading/trailing underscores
+    || 'glyph'; // Fallback if name becomes empty
+  
   const scale = selectedScale.value;
   const timestamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  return `${glyphName}_${scale}x_${timestamp}.${extension}`;
+  const filename = `${sanitizedName}_${scale}x_${timestamp}.${extension}`;
+  
+  console.log('Generated filename:', filename, 'from glyph name:', glyphName);
+  return filename;
 }
 
 function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  console.log('Downloading blob:', { 
+    filename, 
+    blobSize: blob.size, 
+    blobType: blob.type 
+  });
+  
+  try {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    
+    // Add link to DOM temporarily to ensure it works in all browsers
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    
+    // Trigger download
+    link.click();
+    
+    // Clean up
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 100);
+    
+    console.log('Download triggered for:', filename);
+    console.log('Check your browser downloads or Downloads folder for the file');
+  } catch (error) {
+    console.error('Download failed:', error);
+    showExportError(`Download failed: ${error.message}`);
+  }
 }
 
 function showExportSuccess(message) {
@@ -428,9 +461,10 @@ function showExportError(message) {
 function showExportSuccessWithFile(filename, fileType, size, blobUrl) {
   exportStatus.value = {
     type: 'success',
-    message: `Exported ${fileType} successfully to ${filename} (${size})`,
+    message: `${fileType} exported successfully! File: ${filename} (${size})`,
     filename: filename,
-    blobUrl: blobUrl
+    blobUrl: blobUrl,
+    instructions: 'Check your Downloads folder or browser download manager'
   };
 }
 
@@ -439,7 +473,7 @@ function openFile() {
     // Open the image file in a new tab
     window.open(exportStatus.value.blobUrl, '_blank');
   } else {
-    alert('No file available to open. Please export a file first.');
+    showExportError('No file available to open. Please export a file first.');
   }
 }
 
@@ -454,14 +488,13 @@ function openDownloadsFolder() {
       // Firefox: Open downloads page
       window.open('about:downloads', '_blank');
     } else {
-      // Fallback: Show instructions
-      navigator.clipboard.writeText('Downloads');
-      alert('File saved to Downloads folder. Check your browser\'s download manager or navigate to your Downloads folder.');
+      // Fallback: Show instructions in export status
+      showExportError('Please check your browser\'s download manager or navigate to your Downloads folder.');
     }
   } catch (error) {
     // Fallback for any errors
     console.log('Could not open Downloads folder automatically');
-    alert('File saved to Downloads folder. Please check your browser\'s download manager or navigate to your Downloads folder.');
+    showExportError('Could not open Downloads folder. Please check your browser\'s download manager.');
   }
 }
 
