@@ -22,7 +22,7 @@
                   prepend-icon="mdi-plus"
                   variant="elevated"
                   size="small"
-                  :disabled="editorCellSize >= 32"
+                  :disabled="editorCellSize >= 64"
                   @click="increaseCellSize"
                   class="cell-size-btn-compact"
                 >
@@ -143,7 +143,7 @@ const emit = defineEmits(['update:bitmap']);
 
 // State
 const canvasRef = ref(null);
-const editorCellSize = ref(8); // Smaller default for large grids
+const editorCellSize = ref(24); // Default cell size for comfortable editing
 const isDrawing = ref(false);
 const currentDrawChar = ref('.');
 const showGridLines = ref(true);
@@ -220,7 +220,7 @@ const cursorStyle = computed(() => {
 
 // Control Functions
 function increaseCellSize() {
-  if (editorCellSize.value < 32) {
+  if (editorCellSize.value < 64) {
     editorCellSize.value += 2;
     nextTick(renderCanvas);
   }
@@ -281,8 +281,8 @@ function handleCanvasWheel(event) {
     
     if (event.deltaY < 0) {
       // Zoom in (wheel up)
-      if (currentSize < 32) {
-        editorCellSize.value = Math.min(32, currentSize + zoomStep);
+      if (currentSize < 64) {
+        editorCellSize.value = Math.min(64, currentSize + zoomStep);
         nextTick(renderCanvas);
       }
     } else {
