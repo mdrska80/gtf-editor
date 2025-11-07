@@ -89,12 +89,15 @@ function clearError() {
   error.value = null;
 }
 
-async function handleOpenFile() {
+async function handleOpenFile()
+{
   error.value = null;
   isLoading.value = true;
 
-  try {
-    const selectedPath = await open({
+  try
+  {
+    const selectedPath = await open(
+    {
       multiple: false,
       filters: [
         {
@@ -104,23 +107,29 @@ async function handleOpenFile() {
       ],
     });
 
-    if (selectedPath && typeof selectedPath === 'string') {
+    if (selectedPath && typeof selectedPath === 'string')
+    {
       console.log('Selected file:', selectedPath);
       const document = await invoke('load_gtf_file', { path: selectedPath });
+    
       console.log('Parsed document:', document);
 
       // --- DEBUGGING: Log the raw document received from Tauri ---
       // console.log("FileOperations - Raw Parsed Document:", JSON.stringify(document, null, 2));
       // --- END DEBUGGING ---
 
-      emit('file-load-success', {
+      emit('file-load-success',
+      {
         gtfData: document,
         currentFilePath: selectedPath,
         currentView: 'header',
         selectedGlyphName: null,
       });
+
     }
-  } catch (err) {
+  }
+  catch (err)
+  {
     const errorString = String(err);
     console.error('Error loading or parsing file:', errorString);
 
@@ -142,7 +151,8 @@ async function handleOpenFile() {
   }
 }
 
-async function handleSaveFile() {
+async function handleSaveFile()
+{
   if (!props.gtfData || !props.currentFilePath) {
     console.warn('Save attempted but no data or file path is available.');
     return;

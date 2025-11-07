@@ -10,7 +10,8 @@ use std::fs;
 
 /// Loads and parses a GTF file from the given path.
 #[tauri::command]
-fn load_gtf_file(path: String) -> Result<gtf::GtfDocument, String> {
+fn load_gtf_file(path: String) -> Result<gtf::GtfDocument, String>
+{
     // Read the file content
     let content = fs::read_to_string(&path)
         .map_err(|err| format!("Failed to read file '{}': {}", path, err))?;
@@ -35,7 +36,8 @@ fn save_gtf_file(path: String, document: gtf::GtfDocument) -> Result<(), String>
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
+pub fn run()
+{
     // Import structs from our gtf module (even if unused for now)
     // use gtf::{GtfDocument, GtfHeader, Glyph, Size, Palette};
 

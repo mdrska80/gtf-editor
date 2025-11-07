@@ -75,7 +75,8 @@ impl FromStr for Size {
 }
 
 
-pub fn parse_gtf_content(content: &str) -> Result<GtfDocument, String> {
+pub fn parse_gtf_content(content: &str) -> Result<GtfDocument, String>
+{
     let mut document = GtfDocument::default();
     let mut current_state = ParseState::Searching;
     let mut current_glyph: Option<Glyph> = None;
