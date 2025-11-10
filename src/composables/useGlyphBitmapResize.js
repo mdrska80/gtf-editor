@@ -1,4 +1,5 @@
 import { watch, ref, nextTick } from 'vue';
+import { invoke } from '@tauri-apps/api/core';
 
 export function useGlyphBitmapResize(glyphData, emit) {
   const isUpdatingFromTextArea = ref(false);
@@ -6,7 +7,7 @@ export function useGlyphBitmapResize(glyphData, emit) {
   // Watch for changes in glyph size to resize the bitmap
   watch(
     () => glyphData.value?.size,
-    (newSize, oldSize) => {
+    async (newSize, oldSize) => {
       if (!glyphData.value || !glyphData.value.bitmap || !newSize || !oldSize) {
         return; // Exit if essential data is missing
       }
@@ -23,51 +24,45 @@ export function useGlyphBitmapResize(glyphData, emit) {
         return;
       }
 
+      // Skip if dimensions haven't changed
+      if (newWidth === oldWidth && newHeight === oldHeight) {
+        return;
+      }
+
       const currentBitmap = glyphData.value.bitmap;
-      let newBitmap = [...currentBitmap]; // Start with a copy
 
-      // Determine the character to use for padding - always use '.'
-      const defaultChar = '.';
-
-      // 1. Adjust Height
-      if (newHeight > oldHeight) {
-        // Add rows
-        const rowToAdd = defaultChar.repeat(newWidth);
-        for (let i = oldHeight; i < newHeight; i++) {
-          newBitmap.push(rowToAdd);
-        }
-      } else if (newHeight < oldHeight) {
-        // Remove rows
-        newBitmap = newBitmap.slice(0, newHeight);
-      }
-
-      // 2. Adjust Width (applied to the potentially height-adjusted bitmap)
-      if (newWidth !== oldWidth) {
-        newBitmap = newBitmap.map((row) => {
-          const currentRow = String(row || '');
-          if (newWidth > oldWidth) {
-            // Add padding
-            return currentRow.padEnd(newWidth, defaultChar);
-          } else {
-            // Truncate
-            return currentRow.slice(0, newWidth);
-          }
+      try {
+        // Call Rust backend to resize the bitmap
+        const resizedBitmap = await invoke('resize_bitmap', {
+          bitmap: currentBitmap,
+          oldSize: {
+            width: oldWidth,
+            height: oldHeight,
+          },
+          newSize: {
+            width: newWidth,
+            height: newHeight,
+          },
         });
-      }
 
-      // Check if bitmap actually changed before emitting
-      let changed = newBitmap.length !== currentBitmap.length;
-      if (!changed) {
-        for (let i = 0; i < newBitmap.length; i++) {
-          if (newBitmap[i] !== currentBitmap[i]) {
-            changed = true;
-            break;
+        // Check if bitmap actually changed before emitting
+        let changed = resizedBitmap.length !== currentBitmap.length;
+        if (!changed) {
+          for (let i = 0; i < resizedBitmap.length; i++) {
+            if (resizedBitmap[i] !== currentBitmap[i]) {
+              changed = true;
+              break;
+            }
           }
         }
-      }
 
-      if (changed) {
-        emit('update:glyphField', { field: 'bitmap', value: newBitmap });
+        if (changed) {
+          emit('update:glyphField', { field: 'bitmap', value: resizedBitmap });
+        }
+      } catch (error) {
+        console.error('Error resizing bitmap via Rust:', error);
+        // Fallback: show error but don't crash
+        // Could emit an error event here if needed
       }
     },
     { deep: true }
