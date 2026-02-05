@@ -52,6 +52,29 @@ npm run build
 npm run tauri build
 ```
 
+### Share Rust `target` Directory (Reduce Disk Usage)
+
+Rust build artifacts can be large. To share a single `target` directory across all Rust projects, set `CARGO_TARGET_DIR` in your shell config.
+
+Zsh:
+```bash
+export CARGO_TARGET_DIR="$HOME/.cargo/target"
+```
+
+Then reload your shell:
+```bash
+source ~/.zshrc
+```
+
+Windows (PowerShell):
+```powershell
+[Environment]::SetEnvironmentVariable("CARGO_TARGET_DIR", "$env:USERPROFILE\\.cargo\\target", "User")
+```
+
+Restart your terminal to pick up the change.
+
+After this is set, you can delete this project's local `target/` directory and Cargo will rebuild into the shared directory.
+
 ### Available Scripts
 
 ```bash
