@@ -23,6 +23,9 @@ const FontPreviewPage = defineAsyncComponent(
 const UIDemoPage = defineAsyncComponent(
   () => import('./components/UIDemoPage.vue')
 );
+const DepartureDisplayPreview = defineAsyncComponent(
+  () => import('./components/DepartureDisplayPreview.vue')
+);
 
 // Initialize composables
 const store = useGtfStore();
@@ -57,6 +60,9 @@ const isGlyphView = computed(() => store.currentView.value === 'glyph');
 const isUIDemoView = computed(() => store.currentView.value === 'ui-demo');
 const isFontPreviewView = computed(
   () => store.currentView.value === 'font-preview'
+);
+const isDeparturePreviewView = computed(
+  () => store.currentView.value === 'departure-preview'
 );
 const hasSelectedGlyph = computed(() => !!store.selectedGlyphData.value);
 
@@ -102,6 +108,10 @@ function navigateToUIDemoPage() {
 
 function navigateToFontPreview() {
   store.currentView.value = 'font-preview';
+}
+
+function navigateToDeparturePreview() {
+  store.currentView.value = 'departure-preview';
 }
 
 // Event handlers with error handling
@@ -217,6 +227,16 @@ function skipToMainContent() {
       />
 
       <v-btn
+        prepend-icon="mdi-bus-clock"
+        :disabled="!hasGtfData"
+        :aria-label="
+          hasGtfData ? 'Departure display preview' : 'Departure preview disabled - no font loaded'
+        "
+        title="Departure Display Preview"
+        @click="navigateToDeparturePreview"
+      />
+
+      <v-btn
         :prepend-icon="theme.themeIcon.value"
         :title="theme.themeToggleTitle.value"
         :aria-label="theme.themeToggleTitle.value"
@@ -324,6 +344,29 @@ function skipToMainContent() {
                 ></v-progress-circular>
                 <span class="ml-3" aria-live="polite">
                   Loading Font Preview...
+                </span>
+              </v-col>
+            </v-row>
+          </v-container>
+        </template>
+      </Suspense>
+
+      <!-- Suspense wrapper for async DepartureDisplayPreview -->
+      <Suspense v-if="isDeparturePreviewView">
+        <template #default>
+          <DepartureDisplayPreview role="region" aria-label="Departure display preview" />
+        </template>
+        <template #fallback>
+          <v-container>
+            <v-row justify="center">
+              <v-col cols="auto">
+                <v-progress-circular
+                  indeterminate
+                  color="primary"
+                  aria-label="Loading departure preview"
+                ></v-progress-circular>
+                <span class="ml-3" aria-live="polite">
+                  Loading Departure Preview...
                 </span>
               </v-col>
             </v-row>

@@ -362,6 +362,24 @@
 - **User Expectations**: Large glyph editing should feel as responsive as small glyph editing
 - **Memory Patterns**: Large bitmap strings can cause GC pressure, typed arrays perform better
 
+**IMPORT/EXPORT ARCHITECTURE LESSONS:**
+- Import/export logic belongs on the Rust backend, not in JavaScript
+- The JS frontend should only be a thin `invoke()` wrapper around Tauri commands
+- Rust traits (`FontImporter`, `FontExporter`) provide clean extensibility
+- Auto-detecting format from file extension is convenient for the import command
+- The `get_importers`/`get_exporters` commands allow the UI to dynamically build file filters
+
+**DEPARTURE DISPLAY PREVIEW LESSONS:**
+- XML two-way binding requires a flag (`xmlUpdatingState`) to prevent circular updates: XML edit -> state change -> XML regeneration
+- DOMParser with `'text/xml'` mode provides reliable XML parsing in the browser
+- Group XML `<Text>` elements by Y coordinate to reconstruct rows
+- Preserve existing column labels/colors when rebuilding from XML by matching on X position
+- Use `nextTick` to reset the circular-update flag after state application completes
+- `navigator.clipboard.write()` does NOT work in Tauri webview - use native Rust clipboard via `arboard` crate
+- Browser-style `<a>` download also doesn't work in Tauri - use `@tauri-apps/plugin-dialog` `save()` + Rust `fs::write()`
+- For image clipboard: canvas -> base64 -> Rust decode -> `arboard::Clipboard::set_image()`
+- For file save: canvas -> base64 -> Rust decode -> `fs::write()` with user-chosen path via native dialog
+
 **NEW EXPORT LESSONS:**
 - **Canvas Export**: HTML5 Canvas `toBlob()` and `toDataURL()` methods provide excellent image export capabilities
 - **Clean Rendering**: Creating dedicated export canvas without UI overlays (grid lines, cursors) ensures professional image output
@@ -421,7 +439,103 @@
 
 ---
 
+## Phase 7: UI Cleanup, Import/Export Architecture, Departure Display Preview
+
+### Background and Motivation
+User wants to:
+1. Remove all PNG export functionality (keep only BMP export)
+2. Clean up the chaotic UI - simplify visual hierarchy in GlyphEditor
+3. Create dummy/placeholder classes for import/export from various formats (text + binary)
+4. Build a new "Departure Display Preview" page - a transit departure board simulator where business users can present how a stationary device will look using the font being edited
+
+### Key Challenges
+- **UI Chaos**: GlyphEditor has too many competing card sections (color picker, export controls, canvas controls). Need to consolidate into a cleaner layout.
+- **Import/Export Architecture**: Need clean service layer with text/binary format support that the user can implement later.
+- **Departure Board**: Must look realistic (black LCD background, monochrome/colored text), be intuitive for non-technical business users, and render using the actual font glyphs.
+
+### High-level Task Breakdown
+
+**Task 7.1: Remove PNG Export**
+- Remove PNG export button from GlyphEditor.vue
+- Remove `exportAsPNG` method from GlyphEditor.vue and CanvasBitmapGrid.vue
+- Remove PNG-related state (`isExportingPNG`)
+- Remove PNG file size estimates from export info display
+- Keep BMP export fully functional
+- Success Criteria: No PNG references remain in export UI, BMP export still works
+
+**Task 7.2: Clean Up Chaotic UI**
+- Consolidate export controls into a simpler inline bar (not a separate card)
+- Simplify the color picker card into a more compact section
+- Reduce visual noise by removing redundant cards/borders
+- Create clearer visual hierarchy: Metadata > Palette > Canvas > Tools
+- Move export as a compact action bar below the canvas (not above)
+- Success Criteria: Cleaner visual hierarchy, fewer nested cards, less visual noise
+
+**Task 7.3: Create Import/Export Service Architecture**
+- Create `src/services/importers/` directory with base class and format-specific importers:
+  - `BaseImporter.js` - abstract base with common interface
+  - `GtfTextImporter.js` - GTF text format (already implemented via Rust)
+  - `DatTextImporter.js` - DAT text format (dummy)
+  - `FntTextImporter.js` - FNT text format (dummy)  
+  - `BfntBinaryImporter.js` - BFNT binary format (dummy)
+- Create `src/services/exporters/` directory with base class and format-specific exporters:
+  - `BaseExporter.js` - abstract base with common interface
+  - `GtfTextExporter.js` - GTF text format (already implemented via Rust)
+  - `BmpImageExporter.js` - BMP image export (dummy)
+  - `DatTextExporter.js` - DAT text format (dummy)
+  - `BfntBinaryExporter.js` - BFNT binary format (dummy)
+- Success Criteria: Clean architecture with base classes, all dummy classes have method stubs with JSDoc
+
+**Task 7.4: Build Departure Display Preview Page**
+- Create `DepartureDisplayPreview.vue` component
+- Black LCD background simulating a real departure board
+- Editable rows: line number, destination, departure time
+- Renders text using the actual font glyphs from the loaded GTF file
+- Add/remove departure rows
+- Configurable display settings (background color, text color scheme)
+- Navigation from app bar (new icon button)
+- Success Criteria: Realistic departure board preview, intuitive for business users, renders with loaded font
+
 ## Current Status / Progress Tracking
+
+✅ **COMPLETED: Phase 7 - UI Cleanup, Import/Export, Departure Preview**
+
+**Task 7.1 - Remove PNG Export:** ✅ Done
+- Removed PNG export button, method, state from GlyphEditor.vue
+- Removed `exportAsPNG` from CanvasBitmapGrid.vue and defineExpose
+- Removed PNG size estimates from export info
+- BMP export remains fully functional
+
+**Task 7.2 - Clean Up Chaotic UI:** ✅ Done
+- Replaced 3 stacked cards (color picker, export controls, canvas controls) with a single toolbar row
+- Draw color + scale selector + export button all in one compact bar
+- Text views (bitmap text, glyph source) moved into collapsible expansion panels
+- Reduced CSS from ~300 lines to ~80 lines
+- Much cleaner visual hierarchy
+
+**Task 7.3 - Import/Export Architecture:** ✅ Done (Rust backend)
+- Created `src-tauri/src/importers/` with `FontImporter` trait
+- Created `src-tauri/src/exporters/` with `FontExporter` trait
+- Dummy implementations: DatText, FntText, BfntBinary importers; DatText, BfntBinary, BmpImage exporters
+- GTF import/export delegates to existing parse.rs/serialize.rs
+- Tauri commands: `import_font_file`, `export_font_file`, `get_importers`, `get_exporters`
+- JS thin wrappers in `src/services/importers/index.js` and `src/services/exporters/index.js`
+- Rust compiles cleanly
+
+**Task 7.4 - Departure Display Preview:** ✅ Done (Redesigned)
+- New `DepartureDisplayPreview.vue` with column-based layout system
+- **Free resolution input**: business user types width × height directly
+- **Dynamic columns**: add/remove columns, each with label, X position, width, alignment, color
+- **Data rows**: each row has cells matching the defined columns
+- **Header**: configurable multi-line header with station icon + custom text/colors
+- **Footer**: optional footer with custom text (date/time etc.)
+- **Export**: Save PNG + Copy to Clipboard buttons
+- **Pixel grid**: now visible (rgba 80,80,80 instead of 40,40,40)
+- **Czech UI**: labels in Czech for the target business audience
+- Column model mirrors the real XML layout config (X, Width, Align)
+- Navigation via bus-clock icon in app bar, registered as `departure-preview` view
+
+---
 
 ✅ **COMPLETED: Canvas Performance Optimization**
 - Canvas-only architecture implemented

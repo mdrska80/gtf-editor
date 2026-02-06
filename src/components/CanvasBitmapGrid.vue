@@ -477,29 +477,6 @@ function createExportCanvas(scaleFactor = 1, format = 'png', backgroundColor = '
 }
 
 /**
- * Export bitmap as PNG with transparency support
- * @param {number} scaleFactor - Resolution multiplier (default: 1x)
- * @returns {Promise<Blob>} PNG blob data
- */
-async function exportAsPNG(scaleFactor = 1) {
-  try {
-    const exportCanvas = createExportCanvas(scaleFactor, 'png');
-    
-    return new Promise((resolve, reject) => {
-      exportCanvas.toBlob((blob) => {
-        if (blob) {
-          resolve(blob);
-        } else {
-          reject(new Error('Failed to create PNG blob'));
-        }
-      }, 'image/png', 1.0); // Maximum quality
-    });
-  } catch (error) {
-    throw new Error(`PNG export failed: ${error.message}`);
-  }
-}
-
-/**
  * Export bitmap as BMP with solid background
  * @param {number} scaleFactor - Resolution multiplier (default: 1x)
  * @param {string} backgroundColor - Background color (default: white)
@@ -553,9 +530,8 @@ function getExportInfo(scaleFactor = 1) {
   const width = props.size.width * cellSize;
   const height = props.size.height * cellSize;
   
-  // Rough file size estimation (PNG is typically smaller due to compression)
+  // Rough file size estimation
   const pixelCount = width * height;
-  const estimatedPngSizeKB = Math.round((pixelCount * 1.5) / 1024); // Rough PNG estimate
   const estimatedBmpSizeKB = Math.round((pixelCount * 4) / 1024); // Uncompressed estimate
 
   return {
@@ -563,7 +539,6 @@ function getExportInfo(scaleFactor = 1) {
     cellSize,
     scaleFactor,
     estimatedFileSize: {
-      png: `~${estimatedPngSizeKB}KB`,
       bmp: `~${estimatedBmpSizeKB}KB`
     }
   };
@@ -571,7 +546,6 @@ function getExportInfo(scaleFactor = 1) {
 
 // Expose export methods for parent components
 defineExpose({
-  exportAsPNG,
   exportAsBMP,
   getExportDataURL,
   getExportInfo,
