@@ -369,6 +369,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import { useGtfStore } from '../composables/useGtfStore';
 import { useOptimizedPalette, useOptimizedGlyphMap } from '../composables/usePerformanceOptimization';
+import { useDepartureRenderer } from '../composables/useDepartureRenderer';
+import { useDepartureXml } from '../composables/useDepartureXml';
 
 const gtfStore = useGtfStore();
 
@@ -392,9 +394,6 @@ const headerLines = ref([
 const showFooter = ref(true);
 const footerText = ref(formatCurrentDateTime());
 
-// Alignment options
-const alignOptions = ['left', 'center', 'right'];
-
 // Columns definition
 const columns = ref([
   { label: 'Line', x: 0, width: 25, align: 'left', color: '#FFE707' },
@@ -415,20 +414,12 @@ const rows = ref([
 // Export status
 const exportStatus = ref(null);
 
-// XML
-const xmlContent = ref('');
-const xmlParseError = ref('');
-const xmlTextarea = ref(null);
-// Flag to prevent circular updates: XML -> state -> XML
-let xmlUpdatingState = false;
-
 // =====================================================================
-// CANVAS
+// CANVAS & FONT DATA
 // =====================================================================
 
 const displayCanvas = ref(null);
 
-// Font data
 const processedDefaultPalette = useOptimizedPalette(gtfStore.gtfData);
 const glyphMap = useOptimizedGlyphMap(computed(() => gtfStore.gtfData.value?.glyphs));
 
@@ -439,12 +430,44 @@ const canvasWidth = computed(() => displayWidth.value * pixelScale.value);
 const canvasHeight = computed(() => displayHeight.value * pixelScale.value);
 
 // =====================================================================
+// COMPOSABLES
+// =====================================================================
+
+const { renderDisplay, getGlyphHeight } = useDepartureRenderer({
+  displayCanvas,
+  displayWidth,
+  displayHeight,
+  pixelScale,
+  showGrid,
+  showHeader,
+  headerLines,
+  showFooter,
+  footerText,
+  columns,
+  rows,
+  processedDefaultPalette,
+  glyphMap,
+  hasGlyphs,
+});
+
+const { xmlContent, xmlParseError, onXmlInput, updateXmlFromState } = useDepartureXml({
+  displayWidth,
+  displayHeight,
+  showHeader,
+  headerLines,
+  showFooter,
+  footerText,
+  columns,
+  rows,
+  getGlyphHeight,
+});
+
+// =====================================================================
 // COLUMN / ROW MANAGEMENT
 // =====================================================================
 
 function addColumn()
 {
-  // Auto-calculate X from previous columns
   let nextX = 0;
   if (columns.value.length > 0)
   {
@@ -452,7 +475,6 @@ function addColumn()
     nextX = last.x + last.width + 5;
   }
   columns.value.push({ label: '', x: nextX, width: 40, align: 'left', color: '#FFFFFF' });
-  // Extend all existing rows with an empty cell
   for (const row of rows.value)
   {
     row.cells.push('');
@@ -462,7 +484,6 @@ function addColumn()
 function removeColumn(index)
 {
   columns.value.splice(index, 1);
-  // Remove matching cell from all rows
   for (const row of rows.value)
   {
     row.cells.splice(index, 1);
@@ -493,334 +514,14 @@ function formatCurrentDateTime()
 }
 
 // =====================================================================
-// GLYPH RENDERING
-// =====================================================================
-
-function getGlyphPalette(glyph)
-{
-  if (glyph.palette?.entries && Object.keys(glyph.palette.entries).length > 0)
-  {
-    return glyph.palette.entries;
-  }
-  const defaults = {};
-  if (processedDefaultPalette.value)
-  {
-    for (const entry of processedDefaultPalette.value)
-    {
-      defaults[entry.char] = entry.color;
-    }
-  }
-  return defaults;
-}
-
-/**
- * Render a single glyph onto the canvas at display-pixel position (x, y).
- * Returns the glyph width in display pixels.
- */
-function renderGlyph(ctx, glyph, x, y, colorOverride = null)
-{
-  if (!glyph || !glyph.bitmap || !glyph.size) return 0;
-
-  const palette = getGlyphPalette(glyph);
-  const scale = pixelScale.value;
-  const glyphW = glyph.size.width;
-  const glyphH = glyph.size.height;
-
-  for (let row = 0; row < glyph.bitmap.length && row < glyphH; row++)
-  {
-    const line = glyph.bitmap[row];
-    for (let col = 0; col < line.length && col < glyphW; col++)
-    {
-      const ch = line[col];
-      let color = palette[ch] || null;
-      if (colorOverride && color && color.toLowerCase() !== '#000000')
-      {
-        color = colorOverride;
-      }
-      if (color && color.toLowerCase() !== '#000000')
-      {
-        ctx.fillStyle = color;
-        ctx.fillRect(
-          (x + col) * scale,
-          (y + row) * scale,
-          scale,
-          scale
-        );
-      }
-    }
-  }
-  return glyphW;
-}
-
-/**
- * Measure text width in display pixels without rendering.
- */
-function measureText(text, spacing = 1)
-{
-  let w = 0;
-  for (const char of text)
-  {
-    if (char === ' ')
-    {
-      const sg = glyphMap.value[' '];
-      w += sg ? sg.size.width : 4;
-    }
-    else
-    {
-      const g = glyphMap.value[char];
-      w += g ? g.size.width + spacing : 4;
-    }
-  }
-  if (text.length > 0) w -= spacing; // remove trailing
-  return w;
-}
-
-/**
- * Render text at (startX, startY) with alignment within a column region.
- * align: 'left' | 'center' | 'right'
- * regionX, regionWidth define the column area.
- */
-function renderTextInColumn(ctx, text, regionX, regionWidth, startY, align, colorOverride, spacing = 1)
-{
-  const textW = measureText(text, spacing);
-  let cursorX;
-  if (align === 'right')
-  {
-    cursorX = regionX + regionWidth - textW;
-  }
-  else if (align === 'center')
-  {
-    cursorX = regionX + Math.floor((regionWidth - textW) / 2);
-  }
-  else
-  {
-    cursorX = regionX;
-  }
-
-  for (const char of text)
-  {
-    if (char === ' ')
-    {
-      const sg = glyphMap.value[' '];
-      cursorX += sg ? sg.size.width : 4;
-      continue;
-    }
-    const glyph = glyphMap.value[char];
-    if (glyph)
-    {
-      renderGlyph(ctx, glyph, cursorX, startY, colorOverride);
-      cursorX += glyph.size.width + spacing;
-    }
-    else
-    {
-      cursorX += 4;
-    }
-  }
-}
-
-/**
- * Simple left-aligned text render, returns width consumed.
- */
-function renderText(ctx, text, startX, startY, colorOverride = null, spacing = 1)
-{
-  let cursorX = startX;
-  for (const char of text)
-  {
-    if (char === ' ')
-    {
-      const sg = glyphMap.value[' '];
-      cursorX += sg ? sg.size.width : 4;
-      continue;
-    }
-    const glyph = glyphMap.value[char];
-    if (glyph)
-    {
-      renderGlyph(ctx, glyph, cursorX, startY, colorOverride);
-      cursorX += glyph.size.width + spacing;
-    }
-    else
-    {
-      cursorX += 4;
-    }
-  }
-  return cursorX - startX;
-}
-
-/**
- * Render a glyph inverted (dark on white) for icon circles.
- */
-function renderGlyphBlackOnWhite(ctx, glyph, x, y)
-{
-  if (!glyph || !glyph.bitmap || !glyph.size) return;
-  const palette = getGlyphPalette(glyph);
-  const scale = pixelScale.value;
-  for (let row = 0; row < glyph.bitmap.length && row < glyph.size.height; row++)
-  {
-    const line = glyph.bitmap[row];
-    for (let col = 0; col < line.length && col < glyph.size.width; col++)
-    {
-      const color = palette[line[col]] || null;
-      if (color && color.toLowerCase() !== '#000000')
-      {
-        ctx.fillStyle = '#000000';
-        ctx.fillRect((x + col) * scale, (y + row) * scale, scale, scale);
-      }
-    }
-  }
-}
-
-// =====================================================================
-// MAIN RENDER
-// =====================================================================
-
-function renderDisplay()
-{
-  const canvas = displayCanvas.value;
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-
-  const scale = pixelScale.value;
-  const dispW = displayWidth.value;
-  const dispH = displayHeight.value;
-
-  // Black background
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Pixel grid
-  if (showGrid.value && scale > 1)
-  {
-    ctx.strokeStyle = 'rgba(80, 80, 80, 1)';
-    ctx.lineWidth = 0.5;
-    for (let x = 0; x <= dispW; x++)
-    {
-      ctx.beginPath();
-      ctx.moveTo(x * scale + 0.5, 0);
-      ctx.lineTo(x * scale + 0.5, canvas.height);
-      ctx.stroke();
-    }
-    for (let y = 0; y <= dispH; y++)
-    {
-      ctx.beginPath();
-      ctx.moveTo(0, y * scale + 0.5);
-      ctx.lineTo(canvas.width, y * scale + 0.5);
-      ctx.stroke();
-    }
-  }
-
-  if (!hasGlyphs.value)
-  {
-    ctx.fillStyle = '#444444';
-    ctx.font = `${12 * scale}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.fillText('No font loaded. Open a GTF file.', canvas.width / 2, canvas.height / 2);
-    return;
-  }
-
-  // Determine glyph height for row spacing
-  const sampleGlyph = Object.values(glyphMap.value)[0];
-  const glyphHeight = sampleGlyph?.size?.height || 8;
-  const rowSpacing = glyphHeight + 1;
-
-  let currentY = 1;
-
-  // --- Header ---
-  if (showHeader.value && headerLines.value.length > 0)
-  {
-    for (const hLine of headerLines.value)
-    {
-      if (!hLine.text) continue;
-      if (currentY + glyphHeight > dispH) break;
-
-      // Station icon circle for the first header line
-      if (hLine === headerLines.value[0])
-      {
-        const iconChar = hLine.text.charAt(0).toUpperCase();
-        const iconSize = glyphHeight;
-        const iconCenterX = (1 + iconSize / 2) * scale;
-        const iconCenterY = (currentY + iconSize / 2) * scale;
-        const iconRadius = (iconSize / 2 - 0.5) * scale;
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.beginPath();
-        ctx.arc(iconCenterX, iconCenterY, iconRadius, 0, Math.PI * 2);
-        ctx.fill();
-
-        const iconGlyph = glyphMap.value[iconChar];
-        if (iconGlyph)
-        {
-          const gx = Math.round(1 + (iconSize - iconGlyph.size.width) / 2);
-          const gy = Math.round(currentY + (iconSize - iconGlyph.size.height) / 2);
-          renderGlyphBlackOnWhite(ctx, iconGlyph, gx, gy);
-        }
-
-        renderText(ctx, hLine.text, 2 + iconSize + 2, currentY, hLine.color || '#FFFFFF', 1);
-      }
-      else
-      {
-        renderText(ctx, hLine.text, 1, currentY, hLine.color || '#FFFFFF', 1);
-      }
-      currentY += rowSpacing;
-    }
-
-    // Separator
-    ctx.fillStyle = 'rgba(128, 128, 128, 0.6)';
-    ctx.fillRect(0, currentY * scale, canvas.width, Math.max(1, scale * 0.5));
-    currentY += 1;
-  }
-
-  // --- Departure Rows ---
-  const footerReserved = showFooter.value ? rowSpacing + 2 : 0;
-
-  for (const row of rows.value)
-  {
-    if (currentY + glyphHeight > dispH - footerReserved) break;
-
-    for (let ci = 0; ci < columns.value.length && ci < row.cells.length; ci++)
-    {
-      const col = columns.value[ci];
-      const cellText = row.cells[ci] || '';
-      if (!cellText) continue;
-
-      renderTextInColumn(
-        ctx,
-        cellText,
-        col.x,
-        col.width,
-        currentY,
-        col.align || 'left',
-        col.color || '#FFFFFF',
-        1
-      );
-    }
-
-    currentY += rowSpacing;
-  }
-
-  // --- Footer ---
-  if (showFooter.value && footerText.value)
-  {
-    currentY = dispH - glyphHeight - 1;
-    ctx.fillStyle = 'rgba(128, 128, 128, 0.6)';
-    ctx.fillRect(0, (currentY - 1) * scale, canvas.width, Math.max(1, scale * 0.5));
-    renderText(ctx, footerText.value, 1, currentY, '#FFFFFF', 1);
-  }
-}
-
-// =====================================================================
 // EXPORT: PNG + CLIPBOARD
 // =====================================================================
 
-/**
- * Extract base64 PNG data from canvas.
- */
 function getCanvasBase64()
 {
   const canvas = displayCanvas.value;
   if (!canvas) return null;
   const dataUrl = canvas.toDataURL('image/png', 1.0);
-  // Strip "data:image/png;base64," prefix
   return dataUrl.split(',')[1] || null;
 }
 
@@ -832,19 +533,12 @@ async function exportAsPng()
   try
   {
     const savePath = await save({
-      filters: [
-        {
-          name: 'PNG Image',
-          extensions: ['png'],
-        },
-      ],
+      filters: [{ name: 'PNG Image', extensions: ['png'] }],
       defaultPath: `display_${displayWidth.value}x${displayHeight.value}.png`,
     });
-
-    if (!savePath) return; // User cancelled
+    if (!savePath) return;
 
     await invoke('save_png_file', { path: savePath, base64Data });
-
     exportStatus.value = { type: 'success', message: `PNG saved to ${savePath}` };
   }
   catch (err)
@@ -869,211 +563,6 @@ async function copyToClipboard()
   }
 }
 
-// =====================================================================
-// XML GENERATION / PARSING
-// =====================================================================
-
-function escapeXml(str)
-{
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
-/**
- * Generate XML from current display state.
- * Format: <ROOT><Clear/><Text X="" Y="" Width="" Font="0">text</Text>...</ROOT>
- */
-function generateXml()
-{
-  const sampleGlyph = Object.values(glyphMap.value)[0];
-  const glyphHeight = sampleGlyph?.size?.height || 8;
-  const rowSpacing = glyphHeight + 1;
-
-  let lines = [];
-  lines.push('<ROOT>');
-  lines.push('  <Clear/>');
-
-  let currentY = 1;
-
-  // Header lines
-  if (showHeader.value && headerLines.value.length > 0)
-  {
-    for (const hLine of headerLines.value)
-    {
-      if (!hLine.text) continue;
-      lines.push(`  <Text X="0" Y="${currentY}" Width="${displayWidth.value}" Font="0">${escapeXml(hLine.text)}</Text>`);
-      currentY += rowSpacing;
-    }
-    currentY += 1; // separator
-  }
-
-  // Departure rows
-  for (const row of rows.value)
-  {
-    for (let ci = 0; ci < columns.value.length && ci < row.cells.length; ci++)
-    {
-      const col = columns.value[ci];
-      const cellText = row.cells[ci] || '';
-      if (!cellText) continue;
-
-      let attrs = `X="${col.x}" Y="${currentY}" Width="${col.width}" Font="0"`;
-      if (col.align === 'right')
-      {
-        attrs += ' Align="Right"';
-      }
-      else if (col.align === 'center')
-      {
-        attrs += ' Align="center"';
-      }
-      lines.push(`  <Text ${attrs}>${escapeXml(cellText)}</Text>`);
-    }
-    currentY += rowSpacing;
-  }
-
-  // Footer
-  if (showFooter.value && footerText.value)
-  {
-    const footerY = displayHeight.value - glyphHeight - 1;
-    lines.push(`  <Text X="0" Y="${footerY}" Width="${displayWidth.value}" Font="0">${escapeXml(footerText.value)}</Text>`);
-  }
-
-  lines.push('</ROOT>');
-  return lines.join('\n');
-}
-
-/**
- * Parse XML and update display state from it.
- * Reconstructs rows based on Y grouping, columns from X/Width.
- */
-function parseXmlToState(xml)
-{
-  try
-  {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(xml, 'text/xml');
-
-    const parseError = doc.querySelector('parsererror');
-    if (parseError)
-    {
-      xmlParseError.value = 'Invalid XML';
-      return;
-    }
-
-    const root = doc.documentElement;
-    if (root.tagName !== 'ROOT')
-    {
-      xmlParseError.value = 'Expected root element <ROOT>';
-      return;
-    }
-
-    const textElements = root.querySelectorAll('Text');
-    if (textElements.length === 0)
-    {
-      xmlParseError.value = '';
-      return;
-    }
-
-    // Group text elements by Y coordinate
-    const yGroups = {};
-    for (const el of textElements)
-    {
-      const x = parseInt(el.getAttribute('X') || '0', 10);
-      const y = parseInt(el.getAttribute('Y') || '0', 10);
-      const w = parseInt(el.getAttribute('Width') || '0', 10);
-      const align = (el.getAttribute('Align') || 'left').toLowerCase();
-      const text = el.textContent || '';
-
-      if (!yGroups[y])
-      {
-        yGroups[y] = [];
-      }
-      yGroups[y].push({ x, y, width: w, align, text });
-    }
-
-    const yValues = Object.keys(yGroups).map(Number).sort((a, b) => a - b);
-
-    // Determine glyph height for row spacing
-    const sampleGlyph = Object.values(glyphMap.value)[0];
-    const glyphHeight = sampleGlyph?.size?.height || 8;
-
-    // Identify which Y values are header/footer vs data
-    // Simple heuristic: first Y row(s) before first separator gap are header,
-    // last Y row at bottom area is footer, rest are data
-    // But simpler approach: rebuild columns from all text elements,
-    // and treat each Y-group as a row
-
-    // Build unique column definitions from X/Width combinations across all rows
-    const colSignatures = new Map(); // key: "x:width" -> { x, width, align }
-    for (const yVal of yValues)
-    {
-      for (const item of yGroups[yVal])
-      {
-        const key = `${item.x}:${item.width}`;
-        if (!colSignatures.has(key))
-        {
-          colSignatures.set(key, { x: item.x, width: item.width, align: item.align });
-        }
-      }
-    }
-
-    // Sort columns by X
-    const newColumns = Array.from(colSignatures.values()).sort((a, b) => a.x - b.x);
-
-    // Build rows: for each Y group, find matching cells
-    const newRows = [];
-    for (const yVal of yValues)
-    {
-      const group = yGroups[yVal];
-      const cells = newColumns.map((col) =>
-      {
-        const match = group.find(item => item.x === col.x && item.width === col.width);
-        return match ? match.text : '';
-      });
-      newRows.push({ cells });
-    }
-
-    // Apply to state
-    xmlUpdatingState = true;
-
-    // Update columns (preserve labels and colors if columns match, otherwise generate)
-    const updatedColumns = newColumns.map((nc) =>
-    {
-      // Try to find existing column by X position
-      const existing = columns.value.find(c => c.x === nc.x);
-      return {
-        label: existing?.label || `X${nc.x}`,
-        x: nc.x,
-        width: nc.width,
-        align: nc.align || 'left',
-        color: existing?.color || '#FFFFFF',
-      };
-    });
-
-    columns.value = updatedColumns;
-    rows.value = newRows;
-
-    xmlParseError.value = '';
-
-    nextTick(() =>
-    {
-      xmlUpdatingState = false;
-    });
-  }
-  catch (err)
-  {
-    xmlParseError.value = `Error: ${err.message}`;
-  }
-}
-
-function onXmlInput()
-{
-  parseXmlToState(xmlContent.value);
-}
-
 async function copyXmlToClipboard()
 {
   try
@@ -1085,15 +574,6 @@ async function copyXmlToClipboard()
   {
     exportStatus.value = { type: 'error', message: `Copy failed: ${String(err)}` };
   }
-}
-
-/**
- * Regenerate XML from state (called when state changes, unless XML triggered the change)
- */
-function updateXmlFromState()
-{
-  if (xmlUpdatingState) return;
-  xmlContent.value = generateXml();
 }
 
 // =====================================================================
