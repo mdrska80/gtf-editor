@@ -5,15 +5,25 @@
     <!-- ============================================================ -->
     <div class="preview-sticky-panel">
       <div class="preview-panel-inner">
-        <!-- Display bezel -->
-        <div class="display-bezel">
-          <canvas
-            ref="displayCanvas"
-            class="display-canvas"
-            :width="canvasWidth"
-            :height="canvasHeight"
-          ></canvas>
-        </div>
+
+<!--
+// Replace canvas with an image for backend rendering display
+// We still use canvas for grid/overlays if needed, but for now we'll just show the result
+-->
+<div class="display-bezel">
+  <img
+    v-if="renderResult"
+    :src="'data:image/png;base64,' + renderResult"
+    class="display-canvas"
+    :style="{ 
+      width: canvasWidth + 'px', 
+      height: canvasHeight + 'px'
+    }"
+  />
+  <div v-else class="d-flex align-center justify-center text-grey" style="width: 100%; height: 100px;">
+    Rendering...
+  </div>
+</div>
 
         <!-- Toolbar next to display -->
         <div class="preview-sidebar">
@@ -368,11 +378,11 @@ import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import { useGtfStore } from '../composables/useGtfStore';
-import { useOptimizedPalette, useOptimizedGlyphMap } from '../composables/usePerformanceOptimization';
-import { useDepartureRenderer } from '../composables/useDepartureRenderer';
 import { useDepartureXml } from '../composables/useDepartureXml';
 
 const gtfStore = useGtfStore();
+const renderResult = ref(null);
+const isRendering = ref(false);
 
 // =====================================================================
 // CONFIGURATION STATE
@@ -420,9 +430,6 @@ const exportStatus = ref(null);
 
 const displayCanvas = ref(null);
 
-const processedDefaultPalette = useOptimizedPalette(gtfStore.gtfData);
-const glyphMap = useOptimizedGlyphMap(computed(() => gtfStore.gtfData.value?.glyphs));
-
 const hasGlyphs = computed(() => gtfStore.gtfData.value?.glyphs?.length > 0);
 const glyphCount = computed(() => gtfStore.gtfData.value?.glyphs?.length || 0);
 
@@ -433,22 +440,35 @@ const canvasHeight = computed(() => displayHeight.value * pixelScale.value);
 // COMPOSABLES
 // =====================================================================
 
-const { renderDisplay, getGlyphHeight } = useDepartureRenderer({
-  displayCanvas,
-  displayWidth,
-  displayHeight,
-  pixelScale,
-  showGrid,
-  showHeader,
-  headerLines,
-  showFooter,
-  footerText,
-  columns,
-  rows,
-  processedDefaultPalette,
-  glyphMap,
-  hasGlyphs,
-});
+// Core rendering logic calling the backend
+async function renderDisplay() {
+  if (!gtfStore.gtfData.value || isRendering.value) return;
+  
+  isRendering.value = true;
+  try {
+    const request = {
+      display_width: displayWidth.value,
+      display_height: displayHeight.value,
+      pixel_scale: pixelScale.value,
+      show_grid: showGrid.value,
+      show_header: showHeader.value,
+      header_lines: headerLines.value,
+      show_footer: showFooter.value,
+      footer_text: footerText.value,
+      columns: columns.value,
+      rows: rows.value,
+      gtf_data: gtfStore.gtfData.value
+    };
+
+    const base64 = await invoke('render_departure_board', { request });
+    renderResult.value = base64;
+  } catch (err) {
+    console.error('Backend render failed:', err);
+    exportStatus.value = { type: 'error', message: `Render failed: ${err}` };
+  } finally {
+    isRendering.value = false;
+  }
+}
 
 const { xmlContent, xmlParseError, onXmlInput, updateXmlFromState } = useDepartureXml({
   displayWidth,
@@ -459,7 +479,10 @@ const { xmlContent, xmlParseError, onXmlInput, updateXmlFromState } = useDepartu
   footerText,
   columns,
   rows,
-  getGlyphHeight,
+  getGlyphHeight: () => {
+    const g = gtfStore.gtfData.value?.glyphs?.[0];
+    return g?.size?.height || 8;
+  },
 });
 
 // =====================================================================
@@ -517,12 +540,8 @@ function formatCurrentDateTime()
 // EXPORT: PNG + CLIPBOARD
 // =====================================================================
 
-function getCanvasBase64()
-{
-  const canvas = displayCanvas.value;
-  if (!canvas) return null;
-  const dataUrl = canvas.toDataURL('image/png', 1.0);
-  return dataUrl.split(',')[1] || null;
+function getCanvasBase64() {
+  return renderResult.value;
 }
 
 async function exportAsPng()

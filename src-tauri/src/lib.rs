@@ -1,6 +1,7 @@
 mod exporters;
 mod gtf;
 mod importers;
+mod rendering;
 use base64::Engine;
 use std::fs;
 
@@ -211,7 +212,8 @@ pub fn run() {
             get_exporters,
             save_png_file,
             copy_image_to_clipboard,
-            copy_text_to_clipboard
+            copy_text_to_clipboard,
+            rendering::render_departure_board
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
