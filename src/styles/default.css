@@ -1,0 +1,54 @@
+/* Global Application Styles for GTF Editor */
+
+/* Reset & Base */
+html,
+body {
+  overflow: hidden;
+  /* Prevent scrolling on body, handle in components */
+}
+
+/* Ensure v-main is the scrollable area for app-like behavior */
+.v-main {
+  height: 100vh;
+  overflow-y: auto;
+}
+
+/* Typography Overrides */
+.v-application {
+  font-family: 'Inter', 'Roboto', sans-serif !important;
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: 'JetBrains Mono', 'Consolas', monospace !important;
+}
+
+/* Utility / Helper Classes that don't exist in Vuetify */
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.user-select-none {
+  user-select: none;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(var(--v-theme-on-surface), 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--v-theme-on-surface), 0.4);
+}

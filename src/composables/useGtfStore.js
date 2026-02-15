@@ -1,15 +1,34 @@
 import { ref, computed } from 'vue';
 
+// --- Type Definitions ---
+/**
+ * @typedef {Object} Glyph
+ * @property {string} name
+ * @property {string|null} unicode
+ * @property {string|null} char_repr
+ * @property {Object} size
+ * @property {Object} palette
+ * @property {Array} bitmap
+ * @property {string|null} validation_warnings
+ */
+
+/**
+ * @typedef {Object} GtfData
+ * @property {Object} header
+ * @property {Glyph[]} glyphs
+ */
+
 // Initial empty state structure
-const initialGtfData = () => ({ header: {}, glyphs: [] });
+const initialGtfData = () => (/** @type {GtfData} */ ({ header: {}, glyphs: [] }));
 
 // --- Singleton State ---
 // Define state refs *outside* the function to make them shared
 const gtfData = ref(initialGtfData());
-const currentFilePath = ref(null);
-const selectedGlyphName = ref(null);
-const currentView = ref(null);
-const currentError = ref(null);
+const currentFilePath = /** @type {import('vue').Ref<string|null>} */ (ref(null));
+const selectedGlyphName = /** @type {import('vue').Ref<string|null>} */ (ref(null));
+const currentView = /** @type {import('vue').Ref<string|null>} */ (ref(null));
+const currentError = /** @type {import('vue').Ref<string|null>} */ (ref(null));
+const isDirty = ref(false); // Track unsaved changes
 
 // --- Shared Computed Property ---
 const selectedGlyphData = computed(() => {
@@ -41,15 +60,29 @@ export function useGtfStore() {
     currentView.value = view;
     selectedGlyphName.value = glyphName;
     currentError.value = null; // Clear errors on successful load/new
+    isDirty.value = false; // Reset dirty flag on load/new
     console.log('GTF Store: Data updated (Singleton)', {
       filePath,
       view,
       glyphName,
+      isDirty: isDirty.value
     });
   }
 
+  function markSaved() {
+    isDirty.value = false;
+    console.log('GTF Store: Marked as saved (Singleton)');
+  }
+
+  function markDirty() {
+    if (!isDirty.value) {
+      isDirty.value = true;
+      console.log('GTF Store: Marked as dirty (Singleton)');
+    }
+  }
+
   function newFile() {
-    // TODO: Add check for unsaved changes before proceeding
+    // Check for unsaved changes is handled by the caller (e.g. useFileOperations)
     console.log('GTF Store: Creating new file (Singleton)...');
     setGtfData(initialGtfData(), null, 'header', null);
   }
@@ -88,12 +121,12 @@ export function useGtfStore() {
 
     const initialPalette =
       gtfData.value?.header?.default_palette?.entries &&
-      Object.keys(gtfData.value.header.default_palette.entries).length > 0
+        Object.keys(gtfData.value.header.default_palette.entries).length > 0
         ? {
-            entries: JSON.parse(
-              JSON.stringify(gtfData.value.header.default_palette.entries)
-            ),
-          }
+          entries: JSON.parse(
+            JSON.stringify(gtfData.value.header.default_palette.entries)
+          ),
+        }
         : { entries: {} };
 
     const newGlyph = {
@@ -108,6 +141,7 @@ export function useGtfStore() {
 
     gtfData.value.glyphs.push(newGlyph);
     console.log(`GTF Store: Added glyph: ${newName} (Singleton)`);
+    markDirty();
     selectGlyph(newName); // Select the new glyph (triggers view change)
   }
 
@@ -125,6 +159,7 @@ export function useGtfStore() {
       const removedName = gtfData.value.glyphs[indexToRemove].name;
       gtfData.value.glyphs.splice(indexToRemove, 1);
       console.log(`GTF Store: Removed glyph: ${removedName} (Singleton)`);
+      markDirty();
       selectHeader();
     } else {
       console.warn(
@@ -140,22 +175,36 @@ export function useGtfStore() {
       value
     );
     if (gtfData.value && gtfData.value.header) {
+      let changed = false;
       if (field === 'default_palette') {
         const newPalette =
           value && typeof value === 'object' && value.entries
             ? value
             : { entries: {} };
-        gtfData.value.header[field] = newPalette;
+        // Simple equality check (shallow) - heavily simplified for object
+        if (JSON.stringify(gtfData.value.header[field]) !== JSON.stringify(newPalette)) {
+          gtfData.value.header[field] = newPalette;
+          changed = true;
+        }
       } else if (field === 'default_size') {
         const newSize =
           value && typeof value === 'object' && value.width && value.height
             ? value
             : null;
-        gtfData.value.header[field] = newSize;
+        if (JSON.stringify(gtfData.value.header[field]) !== JSON.stringify(newSize)) {
+          gtfData.value.header[field] = newSize;
+          changed = true;
+        }
       } else {
-        gtfData.value.header[field] =
-          typeof value === 'string' && value.trim() === '' ? null : value;
+        const newValue = typeof value === 'string' && value.trim() === '' ? null : value;
+        if (gtfData.value.header[field] !== newValue) {
+          gtfData.value.header[field] = newValue;
+          changed = true;
+        }
       }
+
+      if (changed) markDirty();
+
     } else {
       console.warn(
         'GTF Store: Attempted to update header data, but gtfData or header is null. (Singleton)'
@@ -176,6 +225,7 @@ export function useGtfStore() {
     if (glyphIndex === -1) return;
 
     const currentGlyph = gtfData.value.glyphs[glyphIndex];
+    let changed = false;
 
     if (action === 'use_default_palette') {
       if (gtfData.value.header.default_palette?.entries) {
@@ -184,11 +234,13 @@ export function useGtfStore() {
             JSON.stringify(gtfData.value.header.default_palette.entries)
           ),
         };
+        changed = true;
       } else {
         console.warn(
           'GTF Store: Attempted to apply default palette, but none exists in header. (Singleton)'
         );
       }
+      if (changed) markDirty();
       return;
     }
 
@@ -205,9 +257,16 @@ export function useGtfStore() {
           console.error('GTF Store: Error getting code point:', e);
         }
       }
-      currentGlyph.char_repr = value.length > 0 ? value : null;
+      if (currentGlyph.char_repr !== (value.length > 0 ? value : null)) {
+        currentGlyph.char_repr = value.length > 0 ? value : null;
+        changed = true;
+      }
     } else if (field === 'unicode') {
-      currentGlyph.unicode = value.trim() === '' ? null : value;
+      const newValue = value.trim() === '' ? null : value;
+      if (currentGlyph.unicode !== newValue) {
+        currentGlyph.unicode = newValue;
+        changed = true;
+      }
     } else if (field === 'name') {
       const processedValue = value.trim() === '' ? null : value;
       if (processedValue === null) {
@@ -219,7 +278,10 @@ export function useGtfStore() {
       // Auto-populate if name is single char
       if (processedValue.length === 1) {
         const singleChar = processedValue;
-        currentGlyph.char_repr = singleChar;
+        if (currentGlyph.char_repr !== singleChar) {
+          currentGlyph.char_repr = singleChar;
+          changed = true;
+        }
         if (!currentGlyph.unicode) {
           try {
             const codePoint = singleChar.codePointAt(0);
@@ -234,16 +296,30 @@ export function useGtfStore() {
           }
         }
       }
-      currentGlyph.name = processedValue;
-      selectedGlyphName.value = processedValue; // Update selection ref
+      if (currentGlyph.name !== processedValue) {
+        currentGlyph.name = processedValue;
+        selectedGlyphName.value = processedValue; // Update selection ref
+        changed = true;
+      }
     } else if (field === 'size') {
-      currentGlyph.size = value;
+      // Deep compare for object
+      if (JSON.stringify(currentGlyph.size) !== JSON.stringify(value)) {
+        currentGlyph.size = value;
+        changed = true;
+      }
     } else if (field === 'palette') {
-      currentGlyph.palette =
-        value && typeof value === 'object' ? value : { entries: {} };
+      const newValue = value && typeof value === 'object' ? value : { entries: {} };
+      if (JSON.stringify(currentGlyph.palette) !== JSON.stringify(newValue)) {
+        currentGlyph.palette = newValue;
+        changed = true;
+      }
     } else if (field === 'bitmap') {
       if (Array.isArray(value)) {
+        // Simple array check - comparing contents might be expensive every pixel change, 
+        // but we assume if this fn is called, a change happened in UI.
+        // For performance in pixel editor, we might relax "changed" check or assume true.
         currentGlyph.bitmap = value;
+        changed = true;
       } else {
         console.error('GTF Store: Invalid value received for bitmap update.');
       }
@@ -251,12 +327,17 @@ export function useGtfStore() {
       console.warn(
         `GTF Store: Updating unhandled field '${field}' generically.`
       );
-      currentGlyph[field] = value;
+      if (currentGlyph[field] !== value) {
+        currentGlyph[field] = value;
+        changed = true;
+      }
     } else {
       console.error(
         `GTF Store: Attempted to update unknown field '${field}' on glyph.`
       );
     }
+
+    if (changed) markDirty();
   }
 
   function addGlyphForChar(char) {
@@ -304,12 +385,12 @@ export function useGtfStore() {
 
     const initialPalette =
       gtfData.value?.header?.default_palette?.entries &&
-      Object.keys(gtfData.value.header.default_palette.entries).length > 0
+        Object.keys(gtfData.value.header.default_palette.entries).length > 0
         ? {
-            entries: JSON.parse(
-              JSON.stringify(gtfData.value.header.default_palette.entries)
-            ),
-          }
+          entries: JSON.parse(
+            JSON.stringify(gtfData.value.header.default_palette.entries)
+          ),
+        }
         : { entries: {} };
 
     const newGlyph = {
@@ -338,6 +419,7 @@ export function useGtfStore() {
     console.log(
       `GTF Store: Added specific glyph '${newName}' for char '${char}' (Singleton)`
     );
+    markDirty();
     selectGlyph(newName);
   }
 
@@ -348,9 +430,11 @@ export function useGtfStore() {
     selectedGlyphName,
     currentView,
     currentError,
+    isDirty,
     selectedGlyphData,
     clearError,
     setGtfData,
+    markSaved,
     newFile,
     selectGlyph,
     selectHeader,

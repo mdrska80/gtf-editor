@@ -3,12 +3,11 @@
     <h2>Header Editor</h2>
     <v-row>
       <v-col cols="12" md="6">
-        <h3>Metadata</h3>
+        <br/>
         <v-form @submit.prevent>
           <v-text-field
             label="Font Name"
             :model-value="headerData.font_name || ''"
-            hint="Enter the font name"
             persistent-hint
             @update:model-value="
               $emit('update:headerField', { field: 'font_name', value: $event })
@@ -17,7 +16,6 @@
           <v-text-field
             label="Version"
             :model-value="headerData.version || ''"
-            hint="Enter the font/format version"
             persistent-hint
             @update:model-value="
               $emit('update:headerField', { field: 'version', value: $event })
@@ -26,7 +24,6 @@
           <v-text-field
             label="Author"
             :model-value="headerData.author || ''"
-            hint="Enter the author's name"
             persistent-hint
             @update:model-value="
               $emit('update:headerField', { field: 'author', value: $event })
@@ -35,7 +32,6 @@
           <v-textarea
             label="Description"
             :model-value="headerData.description || ''"
-            hint="Enter an optional description"
             persistent-hint
             rows="3"
             @update:model-value="
@@ -50,7 +46,6 @@
             :model-value="defaultSizeInput"
             :error-messages="defaultSizeError"
             placeholder="e.g., 5x7"
-            hint="Default WxH for new glyphs"
             persistent-hint
             @update:model-value="defaultSizeInput = $event"
             @change="handleDefaultSizeChange"

@@ -1,14 +1,18 @@
 <script setup>
-import { ref, computed, watch, nextTick, defineAsyncComponent } from 'vue';
+import { ref, computed, watch, nextTick, defineAsyncComponent, onMounted } from 'vue';
 import HeaderEditor from './components/HeaderEditor.vue';
 import FileOperations from './components/FileOperations.vue';
 import AppSidebar from './components/AppSidebar.vue';
 import GlobalErrorHandler from './components/GlobalErrorHandler.vue';
+import KeyboardShortcutsOverlay from './components/KeyboardShortcutsOverlay.vue';
 import { useGtfStore } from './composables/useGtfStore';
 import { useGlyphDisplay } from './composables/useGlyphDisplay';
 import { useTheme } from './composables/useTheme';
 import { useOptimizedPalette } from './composables/usePerformanceOptimization';
 import { useErrorHandling } from './composables/useErrorHandling';
+import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts';
+import { useFileOperations } from './composables/useFileOperations';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 // Dynamic imports for heavy components (code splitting)
 const GlyphEditor = defineAsyncComponent(
@@ -32,10 +36,12 @@ const store = useGtfStore();
 const display = useGlyphDisplay(computed(() => store.gtfData.value?.glyphs));
 const theme = useTheme();
 const errorHandler = useErrorHandling();
+const { isOverlayVisible } = useKeyboardShortcuts();
 
 // Local UI state
 const languageDialogVisible = ref(false);
-const glyphEditorRef = ref(null);
+const glyphEditorRef = /** @type {import('vue').Ref<any>} */ (ref(null));
+const fileOperationsRef = /** @type {import('vue').Ref<any>} */ (ref(null));
 
 // Optimized computed properties
 const processedDefaultPalette = useOptimizedPalette(store.gtfData);
@@ -45,13 +51,14 @@ const appTitle = computed(() => {
   const baseTitle = 'GTF Editor';
   const fontName = store.gtfData.value?.header?.font_name;
   const filePath = store.currentFilePath.value;
-  const fileName = filePath
-    ? filePath.split('/').pop() || filePath.split('\\').pop() || '(New File)'
-    : '(New File)';
+  // Use full path if available, otherwise default string
+  const displayPath = filePath || '(New File)';
+  
+  const dirtyMarker = store.isDirty.value ? '*' : '';
 
   return fontName
-    ? `${baseTitle} - ${fontName} (${fileName})`
-    : `${baseTitle} ${fileName}`;
+    ? `${baseTitle} - ${fontName} (${displayPath})${dirtyMarker}`
+    : `${baseTitle} - ${displayPath}${dirtyMarker}`;
 });
 
 const hasGtfData = computed(() => !!store.gtfData.value);
@@ -99,6 +106,25 @@ watch(store.selectedGlyphName, (newName) => {
     });
   }
 });
+
+// Update window title when appTitle changes
+// Update window title when appTitle changes
+watch(appTitle, async (newTitle) => {
+  document.title = newTitle;
+  try {
+      const appWindow = getCurrentWindow();
+      await appWindow.setTitle(newTitle);
+      
+      // On macOS, set the represented filename for the proxy icon
+      // This allows dragging the icon from the title bar
+      const filePath = store.currentFilePath.value;
+      if (filePath && typeof appWindow.setRepresentedFilename === 'function') {
+        await appWindow.setRepresentedFilename(filePath);
+      }
+  } catch (e) {
+      console.warn('Failed to set window title via Tauri API', e);
+  }
+}, { immediate: true });
 
 // Navigation functions
 function navigateToUIDemoPage() {
@@ -159,10 +185,21 @@ function skipToMainContent() {
     mainContent.scrollIntoView({ behavior: 'smooth' });
   }
 }
+
+// Listen for import trigger from shortcuts
+onMounted(() => {
+    window.addEventListener('gtf-trigger-import', () => {
+        if (fileOperationsRef.value) {
+            fileOperationsRef.value.openImportDialog();
+        }
+    });
+});
 </script>
 
 <template>
   <v-app id="inspire" :theme="theme.currentTheme.value">
+    <KeyboardShortcutsOverlay v-model:visible="isOverlayVisible" />
+
     <!-- Skip to main content link for keyboard users -->
     <a
       href="#main-content"
@@ -180,19 +217,14 @@ function skipToMainContent() {
       role="banner"
       aria-label="Main navigation"
     >
+    <!--
       <v-app-bar-title role="heading" aria-level="1">
         {{ appTitle }}
       </v-app-bar-title>
-
-      <v-btn
-        prepend-icon="mdi-file-outline"
-        aria-label="Create a new GTF file"
-        @click="store.newFile"
-      >
-        New File
-      </v-btn>
+    -->
 
       <FileOperations
+        ref="fileOperationsRef"
         :gtf-data="store.gtfData.value"
         :current-file-path="store.currentFilePath.value || undefined"
         @update:gtfData="handleFileLoadUpdate({ gtfData: $event })"
@@ -215,7 +247,7 @@ function skipToMainContent() {
         title="Language Check"
         @click="languageDialogVisible = true"
       />
-
+<!--
       <v-btn
         prepend-icon="mdi-format-text-variant-outline"
         :disabled="!hasGtfData"
@@ -225,7 +257,7 @@ function skipToMainContent() {
         title="Preview Font"
         @click="navigateToFontPreview"
       />
-
+-->
       <v-btn
         prepend-icon="mdi-bus-clock"
         :disabled="!hasGtfData"
@@ -329,6 +361,7 @@ function skipToMainContent() {
       </Suspense>
 
       <!-- Suspense wrapper for async FontPreviewPage -->
+       <!--
       <Suspense v-if="isFontPreviewView">
         <template #default>
           <FontPreviewPage role="region" aria-label="Font preview page" />
@@ -350,6 +383,7 @@ function skipToMainContent() {
           </v-container>
         </template>
       </Suspense>
+      -->
 
       <!-- Suspense wrapper for async DepartureDisplayPreview -->
       <Suspense v-if="isDeparturePreviewView">
@@ -431,16 +465,7 @@ function skipToMainContent() {
   outline-offset: 2px;
 }
 
-/* Focus management for main content */
-#main-content:focus {
-  outline: none;
-}
 
-/* Enhanced focus indicators for better accessibility */
-:deep(.v-btn:focus) {
-  outline: 2px solid rgb(var(--v-theme-primary));
-  outline-offset: 2px;
-}
 
 /* High contrast mode support */
 @media (prefers-contrast: high) {

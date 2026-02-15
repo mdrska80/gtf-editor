@@ -10,6 +10,9 @@ import * as directives from 'vuetify/directives';
 // Material Design Icons
 import '@mdi/font/css/materialdesignicons.css';
 
+// Global Styles
+import './styles/default.css';
+
 // Development tools
 const isDevelopment = process.env.NODE_ENV === 'development';
 

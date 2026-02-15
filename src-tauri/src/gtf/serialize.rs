@@ -9,17 +9,21 @@ pub fn serialize_gtf_document(document: &GtfDocument) -> Result<String, String> 
 
     // --- Serialize Header ---
     writeln!(output, "HEADER").map_err(|e| format!("Failed to write HEADER: {}", e))?;
+
     if let Some(name) = &document.header.font_name {
         writeln!(output, "FONT {}", name).map_err(|e| format!("Failed to write FONT: {}", e))?;
     }
+
     if let Some(version) = &document.header.version {
         writeln!(output, "VERSION {}", version)
             .map_err(|e| format!("Failed to write VERSION: {}", e))?;
     }
+
     if let Some(author) = &document.header.author {
         writeln!(output, "AUTHOR {}", author)
             .map_err(|e| format!("Failed to write AUTHOR: {}", e))?;
     }
+
     if let Some(description) = &document.header.description {
         let single_line_description = description.replace('\n', " ");
         writeln!(output, "DESCRIPTION {}", single_line_description)
@@ -37,8 +41,11 @@ pub fn serialize_gtf_document(document: &GtfDocument) -> Result<String, String> 
         if !def_palette.entries.is_empty() {
             writeln!(output, "DEFAULT_PALETTE")
                 .map_err(|e| format!("Failed to write DEFAULT_PALETTE line: {}", e))?;
+
+            // sort palette entries by character
             let mut sorted_entries: Vec<_> = def_palette.entries.iter().collect();
             sorted_entries.sort_by_key(|(k, _)| *k);
+
             for (char, color) in sorted_entries {
                 writeln!(output, "{} {}", char, color)
                     .map_err(|e| format!("Failed to write palette entry for '{}': {}", char, e))?;
@@ -80,8 +87,11 @@ fn serialize_glyph(output: &mut String, glyph: &Glyph) -> Result<(), String> {
         if !palette.entries.is_empty() {
             writeln!(output, "PALETTE")
                 .map_err(|e| format!("Failed to write PALETTE for '{}': {}", glyph.name, e))?;
+
+            // sort palette entries by character
             let mut sorted_entries: Vec<_> = palette.entries.iter().collect();
             sorted_entries.sort_by_key(|(k, _)| *k);
+
             for (char, color) in sorted_entries {
                 writeln!(output, "{} {}", char, color).map_err(|e| {
                     format!("Failed to write palette entry for '{}': {}", glyph.name, e)

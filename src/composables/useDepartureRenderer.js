@@ -25,8 +25,7 @@
  * @param {import('vue').ComputedRef} opts.glyphMap
  * @param {import('vue').ComputedRef<boolean>} opts.hasGlyphs
  */
-export function useDepartureRenderer(opts)
-{
+export function useDepartureRenderer(opts) {
   const {
     displayCanvas,
     displayWidth,
@@ -48,17 +47,13 @@ export function useDepartureRenderer(opts)
   // Palette helpers
   // ---------------------------------------------------------------
 
-  function getGlyphPalette(glyph)
-  {
-    if (glyph.palette?.entries && Object.keys(glyph.palette.entries).length > 0)
-    {
+  function getGlyphPalette(glyph) {
+    if (glyph.palette?.entries && Object.keys(glyph.palette.entries).length > 0) {
       return glyph.palette.entries;
     }
     const defaults = {};
-    if (processedDefaultPalette.value)
-    {
-      for (const entry of processedDefaultPalette.value)
-      {
+    if (processedDefaultPalette.value) {
+      for (const entry of processedDefaultPalette.value) {
         defaults[entry.char] = entry.color;
       }
     }
@@ -73,8 +68,7 @@ export function useDepartureRenderer(opts)
    * Render a single glyph onto the canvas at display-pixel position (x, y).
    * Returns the glyph width in display pixels.
    */
-  function renderGlyph(ctx, glyph, x, y, colorOverride = null)
-  {
+  function renderGlyph(ctx, glyph, x, y, colorOverride = null) {
     if (!glyph || !glyph.bitmap || !glyph.size) return 0;
 
     const palette = getGlyphPalette(glyph);
@@ -82,19 +76,20 @@ export function useDepartureRenderer(opts)
     const glyphW = glyph.size.width;
     const glyphH = glyph.size.height;
 
-    for (let row = 0; row < glyph.bitmap.length && row < glyphH; row++)
-    {
+    for (let row = 0; row < glyph.bitmap.length && row < glyphH; row++) {
       const line = glyph.bitmap[row];
-      for (let col = 0; col < line.length && col < glyphW; col++)
-      {
+      for (let col = 0; col < line.length && col < glyphW; col++) {
         const ch = line[col];
         let color = palette[ch] || null;
-        if (colorOverride && color && color.toLowerCase() !== '#000000')
-        {
+
+        // Apply color override ONLY if the pixel is effectively "white" (the tintable color in this context)
+        // or if it's a monochrome font scenario where we want to tint everything non-black.
+        // For multi-colored glyphs, we generally want to respect the original colors unless it's the "main" foreground.
+        if (colorOverride && color && color.toUpperCase() === '#FFFFFF') {
           color = colorOverride;
         }
-        if (color && color.toLowerCase() !== '#000000')
-        {
+
+        if (color && color !== '#000000') {
           ctx.fillStyle = color;
           ctx.fillRect(
             (x + col) * scale,
@@ -111,19 +106,15 @@ export function useDepartureRenderer(opts)
   /**
    * Render a glyph inverted (dark on white) for icon circles.
    */
-  function renderGlyphBlackOnWhite(ctx, glyph, x, y)
-  {
+  function renderGlyphBlackOnWhite(ctx, glyph, x, y) {
     if (!glyph || !glyph.bitmap || !glyph.size) return;
     const palette = getGlyphPalette(glyph);
     const scale = pixelScale.value;
-    for (let row = 0; row < glyph.bitmap.length && row < glyph.size.height; row++)
-    {
+    for (let row = 0; row < glyph.bitmap.length && row < glyph.size.height; row++) {
       const line = glyph.bitmap[row];
-      for (let col = 0; col < line.length && col < glyph.size.width; col++)
-      {
+      for (let col = 0; col < line.length && col < glyph.size.width; col++) {
         const color = palette[line[col]] || null;
-        if (color && color.toLowerCase() !== '#000000')
-        {
+        if (color && color.toLowerCase() !== '#000000') {
           ctx.fillStyle = '#000000';
           ctx.fillRect((x + col) * scale, (y + row) * scale, scale, scale);
         }
@@ -138,18 +129,14 @@ export function useDepartureRenderer(opts)
   /**
    * Measure text width in display pixels without rendering.
    */
-  function measureText(text, spacing = 1)
-  {
+  function measureText(text, spacing = 1) {
     let w = 0;
-    for (const char of text)
-    {
-      if (char === ' ')
-      {
+    for (const char of text) {
+      if (char === ' ') {
         const sg = glyphMap.value[' '];
         w += sg ? sg.size.width : 4;
       }
-      else
-      {
+      else {
         const g = glyphMap.value[char];
         w += g ? g.size.width + spacing : 4;
       }
@@ -161,25 +148,20 @@ export function useDepartureRenderer(opts)
   /**
    * Simple left-aligned text render, returns width consumed.
    */
-  function renderText(ctx, text, startX, startY, colorOverride = null, spacing = 1)
-  {
+  function renderText(ctx, text, startX, startY, colorOverride = null, spacing = 1) {
     let cursorX = startX;
-    for (const char of text)
-    {
-      if (char === ' ')
-      {
+    for (const char of text) {
+      if (char === ' ') {
         const sg = glyphMap.value[' '];
         cursorX += sg ? sg.size.width : 4;
         continue;
       }
       const glyph = glyphMap.value[char];
-      if (glyph)
-      {
+      if (glyph) {
         renderGlyph(ctx, glyph, cursorX, startY, colorOverride);
         cursorX += glyph.size.width + spacing;
       }
-      else
-      {
+      else {
         cursorX += 4;
       }
     }
@@ -189,39 +171,31 @@ export function useDepartureRenderer(opts)
   /**
    * Render text at (startX, startY) with alignment within a column region.
    */
-  function renderTextInColumn(ctx, text, regionX, regionWidth, startY, align, colorOverride, spacing = 1)
-  {
+  function renderTextInColumn(ctx, text, regionX, regionWidth, startY, align, colorOverride, spacing = 1) {
     const textW = measureText(text, spacing);
     let cursorX;
-    if (align === 'right')
-    {
+    if (align === 'right') {
       cursorX = regionX + regionWidth - textW;
     }
-    else if (align === 'center')
-    {
+    else if (align === 'center') {
       cursorX = regionX + Math.floor((regionWidth - textW) / 2);
     }
-    else
-    {
+    else {
       cursorX = regionX;
     }
 
-    for (const char of text)
-    {
-      if (char === ' ')
-      {
+    for (const char of text) {
+      if (char === ' ') {
         const sg = glyphMap.value[' '];
         cursorX += sg ? sg.size.width : 4;
         continue;
       }
       const glyph = glyphMap.value[char];
-      if (glyph)
-      {
+      if (glyph) {
         renderGlyph(ctx, glyph, cursorX, startY, colorOverride);
         cursorX += glyph.size.width + spacing;
       }
-      else
-      {
+      else {
         cursorX += 4;
       }
     }
@@ -231,8 +205,7 @@ export function useDepartureRenderer(opts)
   // Main display render
   // ---------------------------------------------------------------
 
-  function renderDisplay()
-  {
+  function renderDisplay() {
     const canvas = displayCanvas.value;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -247,19 +220,16 @@ export function useDepartureRenderer(opts)
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Pixel grid
-    if (showGrid.value && scale > 1)
-    {
+    if (showGrid.value && scale > 1) {
       ctx.strokeStyle = 'rgba(80, 80, 80, 1)';
       ctx.lineWidth = 0.5;
-      for (let x = 0; x <= dispW; x++)
-      {
+      for (let x = 0; x <= dispW; x++) {
         ctx.beginPath();
         ctx.moveTo(x * scale + 0.5, 0);
         ctx.lineTo(x * scale + 0.5, canvas.height);
         ctx.stroke();
       }
-      for (let y = 0; y <= dispH; y++)
-      {
+      for (let y = 0; y <= dispH; y++) {
         ctx.beginPath();
         ctx.moveTo(0, y * scale + 0.5);
         ctx.lineTo(canvas.width, y * scale + 0.5);
@@ -267,8 +237,7 @@ export function useDepartureRenderer(opts)
       }
     }
 
-    if (!hasGlyphs.value)
-    {
+    if (!hasGlyphs.value) {
       ctx.fillStyle = '#444444';
       ctx.font = `${12 * scale}px monospace`;
       ctx.textAlign = 'center';
@@ -284,41 +253,12 @@ export function useDepartureRenderer(opts)
     let currentY = 1;
 
     // --- Header ---
-    if (showHeader.value && headerLines.value.length > 0)
-    {
-      for (const hLine of headerLines.value)
-      {
+    if (showHeader.value && headerLines.value.length > 0) {
+      for (const hLine of headerLines.value) {
         if (!hLine.text) continue;
         if (currentY + glyphHeight > dispH) break;
 
-        // Station icon circle for the first header line
-        if (hLine === headerLines.value[0])
-        {
-          const iconChar = hLine.text.charAt(0).toUpperCase();
-          const iconSize = glyphHeight;
-          const iconCenterX = (1 + iconSize / 2) * scale;
-          const iconCenterY = (currentY + iconSize / 2) * scale;
-          const iconRadius = (iconSize / 2 - 0.5) * scale;
-
-          ctx.fillStyle = '#FFFFFF';
-          ctx.beginPath();
-          ctx.arc(iconCenterX, iconCenterY, iconRadius, 0, Math.PI * 2);
-          ctx.fill();
-
-          const iconGlyph = glyphMap.value[iconChar];
-          if (iconGlyph)
-          {
-            const gx = Math.round(1 + (iconSize - iconGlyph.size.width) / 2);
-            const gy = Math.round(currentY + (iconSize - iconGlyph.size.height) / 2);
-            renderGlyphBlackOnWhite(ctx, iconGlyph, gx, gy);
-          }
-
-          renderText(ctx, hLine.text, 2 + iconSize + 2, currentY, hLine.color || '#FFFFFF', 1);
-        }
-        else
-        {
-          renderText(ctx, hLine.text, 1, currentY, hLine.color || '#FFFFFF', 1);
-        }
+        renderText(ctx, hLine.text, 1, currentY, hLine.color || '#FFFFFF', 1);
         currentY += rowSpacing;
       }
 
@@ -331,12 +271,10 @@ export function useDepartureRenderer(opts)
     // --- Departure Rows ---
     const footerReserved = showFooter.value ? rowSpacing + 2 : 0;
 
-    for (const row of rows.value)
-    {
+    for (const row of rows.value) {
       if (currentY + glyphHeight > dispH - footerReserved) break;
 
-      for (let ci = 0; ci < columns.value.length && ci < row.cells.length; ci++)
-      {
+      for (let ci = 0; ci < columns.value.length && ci < row.cells.length; ci++) {
         const col = columns.value[ci];
         const cellText = row.cells[ci] || '';
         if (!cellText) continue;
@@ -357,8 +295,7 @@ export function useDepartureRenderer(opts)
     }
 
     // --- Footer ---
-    if (showFooter.value && footerText.value)
-    {
+    if (showFooter.value && footerText.value) {
       currentY = dispH - glyphHeight - 1;
       ctx.fillStyle = 'rgba(128, 128, 128, 0.6)';
       ctx.fillRect(0, (currentY - 1) * scale, canvas.width, Math.max(1, scale * 0.5));
@@ -369,8 +306,7 @@ export function useDepartureRenderer(opts)
   /**
    * Get the current glyph height (used by XML generation).
    */
-  function getGlyphHeight()
-  {
+  function getGlyphHeight() {
     const sampleGlyph = Object.values(glyphMap.value)[0];
     return sampleGlyph?.size?.height || 8;
   }

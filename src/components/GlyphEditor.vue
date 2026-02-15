@@ -33,25 +33,25 @@
     </v-row>
 
     <!-- Section 2: Bitmap Editor -->
-    <div class="bitmap-section">
+    <v-sheet class="rounded-lg pa-4 border bg-surface-variant-lighten" style="--v-theme-surface-variant: 255, 255, 255">
       <!-- Toolbar: Draw Color + Export in one row -->
-      <div class="bitmap-toolbar">
-        <div class="toolbar-left">
-          <span class="toolbar-label">Draw Color:</span>
-          <v-chip-group v-model="selectedDrawChar" mandatory class="color-chip-group">
+      <div class="d-flex align-center justify-space-between gap-4 py-2 px-3 mb-3 bg-surface rounded border flex-wrap">
+        <div class="d-flex align-center gap-2 flex-wrap">
+          <span class="text-caption font-weight-bold text-medium-emphasis text-no-wrap">Draw Color:</span>
+          <v-chip-group v-model="selectedDrawChar" mandatory class="ma-0">
             <v-chip
               v-for="entry in palette"
               :key="entry.char"
               :value="entry.char"
               variant="outlined"
               size="small"
-              class="color-chip"
+              class="ma-1"
             >
               <div
-                class="color-swatch-inline"
-                :style="{ backgroundColor: entry.color }"
+                class="rounded mr-1 border"
+                :style="{ backgroundColor: entry.color, width: '14px', height: '14px' }"
               ></div>
-              <code class="char-code-inline">{{ entry.char }}</code>
+              <code class="text-caption font-weight-bold">{{ entry.char }}</code>
             </v-chip>
             <v-chip v-if="!palette || palette.length === 0" disabled size="small">
               No Colors
@@ -59,11 +59,11 @@
           </v-chip-group>
         </div>
 
-        <div class="toolbar-right">
+        <div class="d-flex align-center gap-2 width-100-mobile justify-space-between-mobile">
           <v-chip-group
             v-model="selectedScale"
             mandatory
-            class="scale-chips"
+            class="ma-0"
             color="primary"
           >
             <v-chip
@@ -72,6 +72,7 @@
               :value="scale.value"
               size="small"
               variant="outlined"
+              class="ma-0 mx-1"
             >
               {{ scale.label }}
             </v-chip>
@@ -142,7 +143,7 @@
           </v-expansion-panel-text>
         </v-expansion-panel>
       </v-expansion-panels>
-    </div>
+    </v-sheet>
   </v-container>
 
   <v-container v-else>
@@ -151,7 +152,7 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits, ref, computed, watch } from 'vue';
+import { defineProps, defineEmits, ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import GlyphValidationWarnings from './GlyphValidationWarnings.vue';
 import GlyphMetadataEditor from './GlyphMetadataEditor.vue';
 import GlyphPaletteSection from './GlyphPaletteSection.vue';
@@ -375,6 +376,78 @@ watch(
   },
   { immediate: true, deep: true }
 );
+
+// Keyboard Shortcuts for Nudging
+function handleNudgeKeydown(event) {
+  if (!event.shiftKey) return; 
+
+  // Only handle arrow keys
+  if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+
+  event.preventDefault(); // Prevent scrolling if shift is held
+
+  switch (event.key) {
+    case 'ArrowUp':
+      shiftBitmap(0, -1);
+      break;
+    case 'ArrowDown':
+      shiftBitmap(0, 1);
+      break;
+    case 'ArrowLeft':
+      shiftBitmap(-1, 0);
+      break;
+    case 'ArrowRight':
+      shiftBitmap(1, 0);
+      break;
+  }
+}
+
+function shiftBitmap(dx, dy) {
+  if (!props.glyphData || !props.glyphData.bitmap || !props.glyphData.size) return;
+
+  const width = props.glyphData.size.width;
+  const height = props.glyphData.size.height;
+  const oldBitmap = props.glyphData.bitmap;
+  const newBitmap = [];
+
+  // Initialize new bitmap with empty/erase chars
+  // Note: We need to handle if bitmap rows are strings
+  
+  for (let y = 0; y < height; y++) {
+    let newRow = '';
+    for (let x = 0; x < width; x++) {
+      const srcX = x - dx;
+      const srcY = y - dy;
+
+      let char = selectedEraseChar.value; // Default to erase char (empty)
+
+      if (srcX >= 0 && srcX < width && srcY >= 0 && srcY < height) {
+        // Valid source position, get char from old bitmap
+        if (srcY < oldBitmap.length) {
+            const srcRow = oldBitmap[srcY];
+            // If row is string
+            if (typeof srcRow === 'string' && srcX < srcRow.length) {
+                char = srcRow[srcX];
+            }
+        }
+      }
+      newRow += char;
+    }
+    newBitmap.push(newRow);
+  }
+
+  handleBitmapUpdate(newBitmap);
+}
+
+
+
+onMounted(() => {
+  window.addEventListener('keydown', handleNudgeKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleNudgeKeydown);
+});
 </script>
 
 <style scoped>
@@ -389,89 +462,27 @@ watch(
   color: rgb(var(--v-theme-on-surface));
 }
 
-/* Bitmap Section */
-.bitmap-section {
-  background: rgba(var(--v-theme-surface-variant), 0.15);
-  border-radius: 8px;
-  padding: 16px;
-  border: 1px solid rgba(var(--v-theme-outline), 0.12);
+.gap-2 {
+  gap: 8px;
 }
 
-/* Toolbar - single row with draw colors and export */
-.bitmap-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.gap-4 {
   gap: 16px;
-  padding: 8px 12px;
-  margin-bottom: 12px;
-  background: rgba(var(--v-theme-surface), 0.6);
-  border-radius: 6px;
-  border: 1px solid rgba(var(--v-theme-outline), 0.12);
-  flex-wrap: wrap;
 }
 
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+/* Background refinement for the editor sheet */
+.bg-surface-variant-lighten {
+  background: rgba(var(--v-theme-surface-variant), 0.15) !important;
+  border-color: rgba(var(--v-theme-outline), 0.12) !important;
 }
 
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.toolbar-label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: rgb(var(--v-theme-on-surface-variant));
-  white-space: nowrap;
-}
-
-/* Color chips */
-.color-chip-group {
-  margin: 0;
-  gap: 4px;
-}
-
-.color-chip {
-  min-height: 28px;
-}
-
-.color-swatch-inline {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  margin-right: 4px;
-  border: 1px solid rgba(var(--v-theme-outline), 0.3);
-  flex-shrink: 0;
-}
-
-.char-code-inline {
-  font-size: 0.7rem;
-  font-weight: 600;
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
-}
-
-/* Scale chips */
-.scale-chips {
-  margin: 0;
-  gap: 2px;
-}
-
-/* Responsive */
+/* Responsive utilities usually handled by Vuetify grid but helpful here */
 @media (max-width: 768px) {
-  .bitmap-toolbar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .toolbar-right {
+  .width-100-mobile {
     width: 100%;
+  }
+  
+  .justify-space-between-mobile {
     justify-content: space-between;
   }
 }

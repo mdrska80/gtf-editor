@@ -9,4 +9,4 @@ pub mod types;
 
 pub use parse::parse_gtf_content;
 pub use serialize::serialize_gtf_document;
-pub use types::{Glyph, GtfDocument, GtfHeader, Palette, Size};
+pub use types::{GtfDocument, Size};

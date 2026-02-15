@@ -1,63 +1,64 @@
 <template>
   <div class="canvas-bitmap-editor">
     <!-- Canvas Controls - Compact Style -->
-    <div class="editor-controls mb-3">
-      <v-card class="controls-card-compact" variant="outlined">
-        <v-card-text class="controls-content-compact">
-          <div class="controls-row-compact">
-            <div class="control-group-compact">
-              <span class="control-label-readable">Cell Size</span>
-              <div class="size-controls-compact">
+    <!-- Canvas Controls - Compact Style -->
+    <div class="mb-3">
+      <v-card variant="outlined" class="bg-surface border-opacity-25">
+        <v-card-text class="pa-3">
+          <div class="d-flex align-center justify-space-between gap-4">
+            <div class="d-flex align-center gap-2">
+              <span class="text-caption font-weight-bold text-medium-emphasis" style="min-width: 70px">Cell Size</span>
+              <div class="d-flex align-center gap-1">
                 <v-btn
                   prepend-icon="mdi-minus"
                   variant="elevated"
                   size="small"
                   :disabled="editorCellSize <= 4"
                   @click="decreaseCellSize"
-                  class="cell-size-btn-compact"
+                  style="min-width: 80px; text-transform: none; font-weight: 600"
                 >
                 </v-btn>
-                <v-chip class="size-display-compact mx-2" label>{{ editorCellSize }}px</v-chip>
+                <v-chip class="mx-2 font-weight-bold font-monospace" label style="min-width: 50px; justify-content: center">{{ editorCellSize }}px</v-chip>
                 <v-btn
                   prepend-icon="mdi-plus"
                   variant="elevated"
                   size="small"
                   :disabled="editorCellSize >= 64"
                   @click="increaseCellSize"
-                  class="cell-size-btn-compact"
+                  style="min-width: 80px; text-transform: none; font-weight: 600"
                 >
                 </v-btn>
               </div>
             </div>
             
-            <div class="control-group-compact">
-              <span class="control-label-readable">Grid {{ size?.width || 0 }}×{{ size?.height || 0 }}</span>
-              <v-chip class="cell-count-compact" size="small" color="primary" variant="tonal">
+            <div class="d-flex align-center gap-2">
+              <span class="text-caption font-weight-bold text-medium-emphasis">Grid {{ size?.width || 0 }}×{{ size?.height || 0 }}</span>
+              <v-chip size="small" color="primary" variant="tonal" class="font-weight-bold font-monospace">
                 {{ (size?.width || 0) * (size?.height || 0) }} cells
               </v-chip>
             </div>
 
-            <div class="control-group-compact">
+            <div class="d-flex align-center gap-2">
               <v-btn
                 prepend-icon="mdi-grid"
                 variant="elevated"
                 size="small"
                 color="secondary"
                 @click="toggleGridLines"
-                class="grid-toggle-btn-compact"
+                style="min-width: 100px; text-transform: none; font-weight: 600"
               >
                 {{ showGridLines ? 'Hide' : 'Show' }} Grid
               </v-btn>
             </div>
 
             <!-- Performance Indicator -->
-            <div class="control-group-compact">
+            <div class="d-flex align-center gap-2">
               <v-chip 
                 :color="performanceColor" 
                 size="small" 
                 variant="tonal"
                 :prepend-icon="performanceIcon"
-                class="performance-chip-compact"
+                class="font-weight-bold"
               >
                 {{ performanceText }}
               </v-chip>
@@ -581,74 +582,12 @@ onMounted(() => {
   user-select: none;
 }
 
-/* Compact Canvas Controls - Matching Export Style */
-.controls-card-compact {
-  background: rgb(var(--v-theme-surface));
-  border: 1px solid rgba(var(--v-theme-outline), 0.3);
-}
+.gap-1 { gap: 4px; }
+.gap-2 { gap: 8px; }
+.gap-4 { gap: 16px; }
 
-.controls-content-compact {
-  padding: 12px !important;
-}
-
-.controls-row-compact {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.control-group-compact {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.control-label-readable {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: rgb(var(--v-theme-on-surface));
-  min-width: 70px;
-}
-
-.size-controls-compact {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.size-display-compact {
+.font-monospace {
   font-family: 'JetBrains Mono', 'Consolas', monospace;
-  font-weight: 700;
-  min-width: 50px;
-  text-align: center;
-}
-
-.cell-count-compact {
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
-  font-weight: 600;
-}
-
-.render-mode-compact {
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.grid-toggle-btn-compact {
-  font-weight: 600;
-  text-transform: none;
-  min-width: 100px;
-}
-
-.cell-size-btn-compact {
-  text-transform: none;
-  font-weight: 600;
-  min-width: 80px;
-}
-
-.performance-chip-compact {
-  font-weight: 600;
 }
 
 .canvas-container {
@@ -725,16 +664,6 @@ onMounted(() => {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .editor-controls .control-group {
-    flex-direction: column;
-    gap: 4px;
-  }
-  
-  .control-label {
-    min-width: auto;
-    font-size: 0.8rem;
-  }
-  
   .canvas-wrapper {
     padding: 8px;
   }
