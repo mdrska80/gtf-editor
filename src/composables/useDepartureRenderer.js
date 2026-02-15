@@ -67,6 +67,11 @@ export function useDepartureRenderer(opts) {
   /**
    * Render a single glyph onto the canvas at display-pixel position (x, y).
    * Returns the glyph width in display pixels.
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {any} glyph
+   * @param {number} x
+   * @param {number} y
+   * @param {string|null} colorOverride
    */
   function renderGlyph(ctx, glyph, x, y, colorOverride = null) {
     if (!glyph || !glyph.bitmap || !glyph.size) return 0;
@@ -147,6 +152,12 @@ export function useDepartureRenderer(opts) {
 
   /**
    * Simple left-aligned text render, returns width consumed.
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {string} text
+   * @param {number} startX
+   * @param {number} startY
+   * @param {string|null} colorOverride
+   * @param {number} spacing
    */
   function renderText(ctx, text, startX, startY, colorOverride = null, spacing = 1) {
     let cursorX = startX;
@@ -170,6 +181,14 @@ export function useDepartureRenderer(opts) {
 
   /**
    * Render text at (startX, startY) with alignment within a column region.
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {string} text
+   * @param {number} regionX
+   * @param {number} regionWidth
+   * @param {number} startY
+   * @param {string} align
+   * @param {string|null} colorOverride
+   * @param {number} spacing
    */
   function renderTextInColumn(ctx, text, regionX, regionWidth, startY, align, colorOverride, spacing = 1) {
     const textW = measureText(text, spacing);

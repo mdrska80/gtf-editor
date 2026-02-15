@@ -65,6 +65,7 @@ export function useFileOperations() {
 
                 return true; // Success
             }
+            return false; // User cancelled
         } catch (err) {
             const errorString = String(err);
             console.error('Error loading or parsing file:', errorString);
@@ -90,9 +91,9 @@ export function useFileOperations() {
         console.log(`Saving to current path: ${store.currentFilePath.value}`);
 
         try {
+            // Rust už dokument má ve stavu, nepotřebujeme ho posílat
             await invoke('save_gtf_file', {
                 path: store.currentFilePath.value,
-                document: store.gtfData.value,
             });
             console.log('File saved successfully (overwrite).');
             store.markSaved();
@@ -129,7 +130,6 @@ export function useFileOperations() {
                 console.log('Saving to file:', savePath);
                 await invoke('save_gtf_file', {
                     path: savePath,
-                    document: store.gtfData.value,
                 });
 
                 // Update store with new path
@@ -148,7 +148,13 @@ export function useFileOperations() {
 
     async function handleNewFile() {
         if (!(await checkUnsavedChanges())) return;
-        store.newFile();
+        try {
+            const document = await invoke('init_new_document');
+            store.setGtfData(document, null, 'header', null);
+        } catch (err) {
+            console.error('Failed to create new file in backend', err);
+            error.value = `Error: ${err}`;
+        }
     }
 
     return {

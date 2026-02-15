@@ -457,7 +457,6 @@ async function renderDisplay() {
       footer_text: footerText.value,
       columns: columns.value,
       rows: rows.value,
-      gtf_data: gtfStore.gtfData.value
     };
 
     const base64 = await invoke('render_departure_board', { request });

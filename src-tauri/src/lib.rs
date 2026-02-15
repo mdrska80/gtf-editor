@@ -2,6 +2,7 @@ mod exporters;
 mod gtf;
 mod importers;
 mod rendering;
+mod state;
 use base64::Engine;
 use std::fs;
 
@@ -12,35 +13,190 @@ use std::fs;
 //     format!("Hello, {}! You've been greeted from Rust!", name)
 // }
 
-/// Loads and parses a GTF file from the given path.
+/// Načte a zparsuje GTF soubor a uloží ho do globálního stavu Rustu.
 #[tauri::command]
-fn load_gtf_file(path: String) -> Result<gtf::GtfDocument, String> {
-    // Read the file content
+fn load_gtf_file(
+    path: String,
+    state: tauri::State<'_, state::AppState>,
+) -> Result<gtf::GtfDocument, String> {
+    // 1. Přečteme obsah souboru z disku
     let content = fs::read_to_string(&path)
         .map_err(|err| format!("Failed to read file '{}': {}", path, err))?;
 
-    // Parse the content using our gtf module function
-    gtf::parse_gtf_content(&content)
-    // We could add more context to the error here if needed
-    // .map_err(|parse_err| format!("Error parsing file '{}': {}", path, parse_err))
+    // 2. Zparsujeme text na GTF strukturu
+    let doc = gtf::parse_gtf_content(&content)?;
+
+    // 3. Uložíme dokument, cestu a resetujeme 'dirty' příznak v globálním stavu
+    // lock() nám zajistí, že v tuhle chvíli s daty nepracuje jiný příkaz.
+    *state.document.lock().unwrap() = Some(doc.clone());
+    *state.file_path.lock().unwrap() = Some(path);
+    *state.is_dirty.lock().unwrap() = false;
+
+    // Vrátíme dokument frontendu pro první zobrazení
+    Ok(doc)
 }
 
-/// Serializes the GtfDocument and saves it to the specified path.
+/// Uloží aktuální dokument ze stavu na disk.
 #[tauri::command]
-fn save_gtf_file(path: String, document: gtf::GtfDocument) -> Result<(), String> {
-    // Serialize the document
-    let content = gtf::serialize_gtf_document(&document)?;
-    // Note: serialize_gtf_document itself returns Result<String, String>,
-    // the `?` operator propagates the error if serialization fails.
+fn save_gtf_file(
+    path: Option<String>,
+    state: tauri::State<'_, state::AppState>,
+) -> Result<(), String> {
+    // Získáme lock na dokument
+    let doc_lock = state.document.lock().unwrap();
+    let doc = doc_lock.as_ref().ok_or("No document loaded to save")?;
 
-    // Write the content to the file
-    fs::write(&path, content).map_err(|err| format!("Failed to write file '{}': {}", path, err))
+    // Určíme cestu (buď předaná, nebo ta z dřívějška)
+    let final_path = match path {
+        Some(p) => {
+            *state.file_path.lock().unwrap() = Some(p.clone());
+            p
+        }
+        None => state
+            .file_path
+            .lock()
+            .unwrap()
+            .clone()
+            .ok_or("No path specified")?,
+    };
+
+    // Serializace do textu (GTF formát)
+    let content = gtf::serialize_gtf_document(&doc)?;
+
+    // Zápis na disk
+    fs::write(&final_path, content)
+        .map_err(|err| format!("Failed to write file '{}': {}", final_path, err))?;
+
+    // Soubor je uložen, už není 'dirty'
+    *state.is_dirty.lock().unwrap() = false;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn get_current_document(
+    state: tauri::State<'_, state::AppState>,
+) -> Result<Option<gtf::GtfDocument>, String> {
+    Ok(state.document.lock().unwrap().clone())
+}
+
+#[tauri::command]
+fn init_new_document(state: tauri::State<'_, state::AppState>) -> Result<gtf::GtfDocument, String> {
+    let new_doc = gtf::GtfDocument::default();
+    *state.document.lock().unwrap() = Some(new_doc.clone());
+    *state.file_path.lock().unwrap() = None;
+    *state.is_dirty.lock().unwrap() = true; // Nový nesoubor je technicky 'dirty'
+    Ok(new_doc)
+}
+/// Vrátí základní informace o stavu (jestli je dokument načten, cesta, is_dirty).
+#[tauri::command]
+fn get_state_info(state: tauri::State<'_, state::AppState>) -> state::StateInfo {
+    state::StateInfo {
+        has_document: state.document.lock().unwrap().is_some(),
+        file_path: state.file_path.lock().unwrap().clone(),
+        is_dirty: *state.is_dirty.lock().unwrap(),
+    }
+}
+
+/// Aktualizuje (nebo přidá) konkrétní glyf v dokumentu.
+#[tauri::command]
+fn update_glyph(
+    glyph_name: String,
+    updated_glyph: gtf::types::Glyph,
+    state: tauri::State<'_, state::AppState>,
+) -> Result<(), String> {
+    let mut doc_lock = state.document.lock().unwrap();
+    let doc = doc_lock.as_mut().ok_or("No document loaded")?;
+
+    if let Some(pos) = doc.glyphs.iter().position(|g| g.name == glyph_name) {
+        doc.glyphs[pos] = updated_glyph;
+    } else {
+        // Pokud neexistuje pod starým jménem, prostě ho přidáme (např. u nového glyfu)
+        doc.glyphs.push(updated_glyph);
+    }
+    *state.is_dirty.lock().unwrap() = true;
+    Ok(())
+}
+
+/// Smaže glyf z dokumentu.
+#[tauri::command]
+fn remove_glyph(
+    glyph_name: String,
+    state: tauri::State<'_, state::AppState>,
+) -> Result<(), String> {
+    let mut doc_lock = state.document.lock().unwrap();
+    let doc = doc_lock.as_mut().ok_or("No document loaded")?;
+
+    if let Some(pos) = doc.glyphs.iter().position(|g| g.name == glyph_name) {
+        doc.glyphs.remove(pos);
+        *state.is_dirty.lock().unwrap() = true;
+        Ok(())
+    } else {
+        Err(format!("Glyph '{}' not found", glyph_name))
+    }
+}
+
+/// Změní jeden pixel v bitmapě konkrétního glyfu.
+/// Ideální pro kreslení tužkou ve Vue.
+#[tauri::command]
+fn update_glyph_pixel(
+    glyph_name: String,
+    row: usize,
+    col: usize,
+    new_char: char,
+    state: tauri::State<'_, state::AppState>,
+) -> Result<(), String> {
+    let mut doc_lock = state.document.lock().unwrap();
+    let doc = doc_lock.as_mut().ok_or("No document loaded")?;
+
+    if let Some(glyph) = doc.glyphs.iter_mut().find(|g| g.name == glyph_name) {
+        if row < glyph.bitmap.len() {
+            let row_str = &mut glyph.bitmap[row];
+            if col < row_str.chars().count() {
+                // V Rustu jsou stringy UTF-8, takže musíme opatrně měnit znak na pozici
+                let mut chars: Vec<char> = row_str.chars().collect();
+                chars[col] = new_char;
+                *row_str = chars.into_iter().collect();
+
+                *state.is_dirty.lock().unwrap() = true;
+                return Ok(());
+            }
+        }
+        Err("Pixel coordinates out of bounds".to_string())
+    } else {
+        Err(format!("Glyph '{}' not found", glyph_name))
+    }
+}
+
+/// Aktualizuje hlavičku dokumentu ve stavu.
+#[tauri::command]
+fn update_header(
+    new_header: gtf::types::GtfHeader,
+    state: tauri::State<'_, state::AppState>,
+) -> Result<(), String> {
+    let mut doc_lock = state.document.lock().unwrap();
+    let doc = doc_lock.as_mut().ok_or("No document loaded")?;
+
+    doc.header = new_header;
+    *state.is_dirty.lock().unwrap() = true;
+    Ok(())
+}
+
+/// Aktualizuje globální paletu fontu ve stavu.
+#[tauri::command]
+fn update_default_palette(
+    new_palette: gtf::types::Palette,
+    state: tauri::State<'_, state::AppState>,
+) -> Result<(), String> {
+    let mut doc_lock = state.document.lock().unwrap();
+    let doc = doc_lock.as_mut().ok_or("No document loaded")?;
+
+    doc.header.default_palette = Some(new_palette);
+    *state.is_dirty.lock().unwrap() = true;
+    Ok(())
 }
 
 /// Resizes a bitmap to new dimensions.
-///
-/// Takes the current bitmap (Vec<String> where each string is a row),
-/// old size, and new size. Returns a resized bitmap with:
 /// - Height adjustment: Adds rows filled with default_char ('.') or removes rows
 /// - Width adjustment: Pads rows with default_char or truncates them
 #[tauri::command]
@@ -110,29 +266,42 @@ fn resize_bitmap(
     Ok(result)
 }
 
-/// Import a font file using the appropriate format importer.
-/// The format is auto-detected from the file extension, or can be specified explicitly.
+/// Importuje font ze souboru, zparsuje ho a uloží do globálního stavu.
 #[tauri::command]
-fn import_font_file(path: String, format: Option<String>) -> Result<gtf::GtfDocument, String> {
+fn import_font_file(
+    path: String,
+    format: Option<String>,
+    state: tauri::State<'_, state::AppState>,
+) -> Result<gtf::GtfDocument, String> {
     let fmt = match format {
         Some(f) => f,
         None => {
-            // Auto-detect from file extension
+            // Auto-detekce podle přípony
             path.rsplit('.').next().unwrap_or("gtf").to_string()
         }
     };
 
-    importers::import_file(&path, &fmt)
+    let doc = importers::import_file(&path, &fmt)?;
+
+    // Synchronizace do stavu
+    *state.document.lock().unwrap() = Some(doc.clone());
+    *state.file_path.lock().unwrap() = Some(path);
+    *state.is_dirty.lock().unwrap() = true; // Importovaný soubor považujeme za nový/změněný vůči gtf
+
+    Ok(doc)
 }
 
-/// Export a font document using the appropriate format exporter.
+/// Exportuje aktuální dokument ze stavu do zvoleného formátu.
 #[tauri::command]
 fn export_font_file(
     path: String,
     format: String,
-    document: gtf::GtfDocument,
+    state: tauri::State<'_, state::AppState>,
 ) -> Result<(), String> {
-    exporters::export_file(&document, &path, &format)
+    let doc_lock = state.document.lock().unwrap();
+    let doc = doc_lock.as_ref().ok_or("No document loaded to export")?;
+
+    exporters::export_file(doc, &path, &format)
 }
 
 /// Get info about all available importers (for UI display).
@@ -201,10 +370,19 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .manage(state::AppState::new()) // Tímto říkáme Tauri, ať si AppState schová do paměti
         // Register command handlers
         .invoke_handler(tauri::generate_handler![
             load_gtf_file,
             save_gtf_file,
+            init_new_document,
+            get_current_document,
+            get_state_info,
+            update_glyph,
+            remove_glyph,
+            update_glyph_pixel,
+            update_header,
+            update_default_palette,
             resize_bitmap,
             import_font_file,
             export_font_file,

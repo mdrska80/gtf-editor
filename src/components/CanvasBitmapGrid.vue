@@ -140,7 +140,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['update:bitmap']);
+const emit = defineEmits(['update:bitmap', 'update:pixel']);
 
 // State
 const canvasRef = ref(null);
@@ -323,14 +323,16 @@ function getGridCoordinates(event) {
 function updateBitmapCell(x, y, char) {
   if (!props.bitmap || y >= props.bitmap.length) return;
   
-  const newBitmap = [...props.bitmap];
-  const row = newBitmap[y];
+  const row = props.bitmap[y];
   if (typeof row === 'string') {
     const rowChars = row.split('');
     if (x < rowChars.length && rowChars[x] !== char) {
-      rowChars[x] = char;
-      newBitmap[y] = rowChars.join('');
-      emit('update:bitmap', newBitmap);
+      // Emitujeme JEDEN pixel pro rychlý backend update
+      emit('update:pixel', { row: y, col: x, char });
+      
+      // Pro okamžitou lokální odezvu v tomto komponentě můžeme bitmapu upravit lokálně,
+      // ale ideální je počkat na update z propu. Protože emit('update:bitmap')
+      // by poslal celých 10MB znovu, použijeme jen pixel update.
     }
   }
 }

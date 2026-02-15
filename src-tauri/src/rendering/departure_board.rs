@@ -1,9 +1,9 @@
 use super::RenderRequest;
-use crate::gtf::types::Glyph;
+use crate::gtf::types::{Glyph, GtfDocument};
 use image::{Rgba, RgbaImage};
 use std::collections::HashMap;
 
-pub fn render_board(req: &RenderRequest) -> Result<Vec<u8>, String> {
+pub fn render_board(req: &RenderRequest, doc: &GtfDocument) -> Result<Vec<u8>, String> {
     let scale = req.pixel_scale;
     let mut img = RgbaImage::new(req.display_width * scale, req.display_height * scale);
 
@@ -29,7 +29,7 @@ pub fn render_board(req: &RenderRequest) -> Result<Vec<u8>, String> {
 
     // Map character representations to glyph names for lookups
     let mut char_map: HashMap<String, &Glyph> = HashMap::new();
-    for glyph in &req.gtf_data.glyphs {
+    for glyph in &doc.glyphs {
         if let Some(ref char_repr) = glyph.char_repr {
             char_map.insert(char_repr.to_string(), glyph);
         }
@@ -37,8 +37,7 @@ pub fn render_board(req: &RenderRequest) -> Result<Vec<u8>, String> {
         char_map.insert(glyph.name.clone(), glyph);
     }
 
-    let glyph_height = req
-        .gtf_data
+    let glyph_height = doc
         .glyphs
         .first()
         .and_then(|g| g.size.as_ref())
@@ -176,10 +175,6 @@ fn render_glyph(
     let override_rgba = color_override.map(hex_to_rgba);
 
     // Safely get size and palette
-    let size = match glyph.size.as_ref() {
-        Some(s) => s,
-        None => return,
-    };
     let palette = match glyph.palette.as_ref() {
         Some(p) => p,
         None => return,

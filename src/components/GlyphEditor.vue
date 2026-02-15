@@ -116,6 +116,7 @@
         :selected-draw-char="selectedDrawChar"
         :selected-erase-char="selectedEraseChar"
         @update:bitmap="handleBitmapUpdate"
+        @update:pixel="handlePixelUpdate"
       />
 
       <!-- Text Views (collapsible) -->
@@ -245,6 +246,10 @@ function handleGlyphPaletteUpdate(newEntries) {
 
 function handleBitmapUpdate(newBitmap) {
   emit('update:glyphField', { field: 'bitmap', value: newBitmap });
+}
+
+function handlePixelUpdate({ row, col, char }) {
+  emit('update:glyphField', { field: 'bitmap', value: { row, col, char }, action: 'pixel' });
 }
 
 function applyDefaultPalette() {
