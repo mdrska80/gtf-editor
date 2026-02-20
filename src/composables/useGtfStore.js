@@ -216,17 +216,24 @@ export function useGtfStore() {
         const updated = await invoke('update_glyph_field', { glyph_name: oldName, field, value });
         gtfData.value.glyphs[glyphIndex] = updated;
         if (field === 'name') selectedGlyphName.value = value;
+
+        // we modify the glyph in place, so we need to mark dirty - NEED SAVING
         markDirty();
+
         return;
       }
 
       // General fallback (update local and sync whole glyph)
       gtfData.value.glyphs[glyphIndex][field] = value;
+
       await invoke('update_glyph', {
         glyph_name: oldName,
         updated_glyph: JSON.parse(JSON.stringify(gtfData.value.glyphs[glyphIndex]))
       });
+
+      // we modify the glyph in place, so we need to mark dirty - NEED SAVING
       markDirty();
+
     } catch (err) {
       console.error('GTF Store: Update failed', err);
     }
