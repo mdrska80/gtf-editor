@@ -118,6 +118,165 @@ fn update_glyph(
     Ok(())
 }
 
+/// Vytvoří nový prázdný glyf s výchozím nastavením.
+#[tauri::command]
+fn add_empty_glyph(state: tauri::State<'_, state::AppState>) -> Result<gtf::types::Glyph, String> {
+    let mut doc_lock = state.document.lock().unwrap();
+    let doc = doc_lock.as_mut().ok_or("No document loaded")?;
+
+    let mut base_name = "NewGlyph".to_string();
+    let mut new_name = base_name.clone();
+    let mut counter = 1;
+    while doc.glyphs.iter().any(|g| g.name == new_name) {
+        new_name = format!("{}{}", base_name, counter);
+        counter += 1;
+    }
+
+    let initial_size = doc.header.default_size.clone().unwrap_or(gtf::types::Size {
+        width: 5,
+        height: 7,
+    });
+    let initial_bitmap =
+        vec![".".repeat(initial_size.width as usize); initial_size.height as usize];
+    let initial_palette = doc.header.default_palette.clone().unwrap_or_default();
+
+    let new_glyph = gtf::types::Glyph {
+        name: new_name,
+        unicode: None,
+        char_repr: None,
+        size: Some(initial_size),
+        palette: Some(initial_palette),
+        bitmap: initial_bitmap,
+        validation_warnings: None,
+    };
+
+    doc.glyphs.push(new_glyph.clone());
+    *state.is_dirty.lock().unwrap() = true;
+
+    Ok(new_glyph)
+}
+
+/// Vytvoří nový glyf pro konkrétní znak.
+#[tauri::command]
+fn add_glyph_for_char(
+    char: char,
+    state: tauri::State<'_, state::AppState>,
+) -> Result<gtf::types::Glyph, String> {
+    let mut doc_lock = state.document.lock().unwrap();
+    let doc = doc_lock.as_mut().ok_or("No document loaded")?;
+
+    // Pokud už existuje, vrátíme ho (nebo ho můžeme vybrat ve Vue)
+    if let Some(existing) = doc.glyphs.iter().find(|g| g.char_repr == Some(char)) {
+        return Ok(existing.clone());
+    }
+
+    let base_name = if char.is_alphanumeric() {
+        char.to_string()
+    } else {
+        "Glyph".to_string()
+    };
+    let mut new_name = base_name.clone();
+    let mut counter = 1;
+    if doc.glyphs.iter().any(|g| g.name == new_name) {
+        new_name = format!("{}{}", base_name, counter);
+        while doc.glyphs.iter().any(|g| g.name == new_name) {
+            counter += 1;
+            new_name = format!("{}{}", base_name, counter);
+        }
+    }
+
+    let initial_size = doc.header.default_size.clone().unwrap_or(gtf::types::Size {
+        width: 5,
+        height: 7,
+    });
+    let initial_bitmap =
+        vec![".".repeat(initial_size.width as usize); initial_size.height as usize];
+    let initial_palette = doc.header.default_palette.clone().unwrap_or_default();
+
+    let unicode = format!("U+{:04X}", char as u32);
+
+    let new_glyph = gtf::types::Glyph {
+        name: new_name,
+        unicode: Some(unicode),
+        char_repr: Some(char),
+        size: Some(initial_size),
+        palette: Some(initial_palette),
+        bitmap: initial_bitmap,
+        validation_warnings: None,
+    };
+
+    doc.glyphs.push(new_glyph.clone());
+    *state.is_dirty.lock().unwrap() = true;
+
+    Ok(new_glyph)
+}
+
+/// Aplikuje výchozí paletu z hlavičky na konkrétní glyf.
+#[tauri::command]
+fn apply_default_palette_to_glyph(
+    glyph_name: String,
+    state: tauri::State<'_, state::AppState>,
+) -> Result<gtf::types::Glyph, String> {
+    let mut doc_lock = state.document.lock().unwrap();
+    let doc = doc_lock.as_mut().ok_or("No document loaded")?;
+
+    let default_palette = doc
+        .header
+        .default_palette
+        .clone()
+        .ok_or("No default palette defined in header")?;
+
+    if let Some(glyph) = doc.glyphs.iter_mut().find(|g| g.name == glyph_name) {
+        glyph.palette = Some(default_palette);
+        *state.is_dirty.lock().unwrap() = true;
+        Ok(glyph.clone())
+    } else {
+        Err(format!("Glyph '{}' not found", glyph_name))
+    }
+}
+
+/// Aktualizuje konkrétní pole glyfu.
+#[tauri::command]
+fn update_glyph_field(
+    glyph_name: String,
+    field: String,
+    value: serde_json::Value,
+    state: tauri::State<'_, state::AppState>,
+) -> Result<gtf::types::Glyph, String> {
+    let mut doc_lock = state.document.lock().unwrap();
+    let doc = doc_lock.as_mut().ok_or("No document loaded")?;
+
+    let pos = doc
+        .glyphs
+        .iter()
+        .position(|g| g.name == glyph_name)
+        .ok_or_else(|| format!("Glyph '{}' not found", glyph_name))?;
+
+    let mut glyph = doc.glyphs[pos].clone();
+
+    match field.as_str() {
+        "name" => {
+            let name = value.as_str().ok_or("Name must be a string")?;
+            glyph.name = name.to_string();
+        }
+        "unicode" => {
+            glyph.unicode = value
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string());
+        }
+        "char_repr" => {
+            let s = value.as_str().unwrap_or("");
+            glyph.char_repr = s.chars().next();
+        }
+        _ => return Err(format!("Field '{}' not supported for atomic update", field)),
+    }
+
+    doc.glyphs[pos] = glyph.clone();
+    *state.is_dirty.lock().unwrap() = true;
+    Ok(glyph)
+}
+
 /// Smaže glyf z dokumentu.
 #[tauri::command]
 fn remove_glyph(
@@ -380,6 +539,10 @@ pub fn run() {
             get_state_info,
             update_glyph,
             remove_glyph,
+            add_empty_glyph,
+            add_glyph_for_char,
+            apply_default_palette_to_glyph,
+            update_glyph_field,
             update_glyph_pixel,
             update_header,
             update_default_palette,

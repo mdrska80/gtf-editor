@@ -107,8 +107,7 @@ export function useGtfStore() {
   }
 
   /**
-   * Synchronizuje lokální stav s backendem (Rust).
-   * Používáme jen když je to nezbytně nutné (např. po načtení souboru).
+   * Syncs local state with backend.
    */
   async function refreshFromBackend() {
     try {
@@ -120,7 +119,7 @@ export function useGtfStore() {
         isDirty.value = info.is_dirty;
       }
     } catch (err) {
-      console.error('GTF Store: Failed to refresh from backend', err);
+      console.error('GTF Store: Refresh failed', err);
     }
   }
 
@@ -128,53 +127,11 @@ export function useGtfStore() {
     if (!gtfData.value) return;
     console.log('GTF Store: Adding new glyph (Singleton)...');
 
-    let newName = 'NewGlyph';
-    let counter = 1;
-    const existingNames = new Set(gtfData.value.glyphs.map((g) => g.name));
-    while (existingNames.has(newName + counter)) {
-      counter++;
-    }
-    newName = newName + counter;
-
-    const initialSize = gtfData.value?.header?.default_size
-      ? { ...gtfData.value.header.default_size }
-      : { width: 5, height: 7 };
-
-    const initialBitmap = Array(initialSize.height).fill(
-      '.'.repeat(initialSize.width)
-    );
-
-    const initialPalette =
-      gtfData.value?.header?.default_palette?.entries &&
-        Object.keys(gtfData.value.header.default_palette.entries).length > 0
-        ? {
-          entries: JSON.parse(
-            JSON.stringify(gtfData.value.header.default_palette.entries)
-          ),
-        }
-        : { entries: {} };
-
-    const newGlyph = {
-      name: newName,
-      unicode: null,
-      char_repr: null,
-      size: initialSize,
-      palette: initialPalette,
-      bitmap: initialBitmap,
-      validation_warnings: null,
-    };
-
-    // Lokální update pro okamžitou reakci UI
-    gtfData.value.glyphs.push(newGlyph);
-
-    // Backend update
     try {
-      // Protože nemáme speciální 'add_glyph' v Rustu, použijeme budoucí verzi state syncu
-      // Pro teď budeme počítat s tím, že backend state se aktualizuje až při specifických akcích
-      // Nebo můžeme volat update_glyph pro tento nový objekt (v Rustu se přidá, pokud neexistuje - upravíme Rust později)
-      await invoke('update_glyph', { glyphName: newName, updatedGlyph: newGlyph });
+      const newGlyph = await invoke('add_empty_glyph');
+      gtfData.value.glyphs.push(newGlyph);
       markDirty();
-      selectGlyph(newName);
+      selectGlyph(newGlyph.name);
     } catch (err) {
       console.error('Failed to add glyph to backend', err);
     }
@@ -208,47 +165,20 @@ export function useGtfStore() {
   }
 
   async function updateHeaderData({ field, value }) {
-    console.log(
-      `GTF Store: Updating header - Field: ${field} (Singleton)`,
-      value
-    );
-    if (gtfData.value && gtfData.value.header) {
-      let changed = false;
-      const header = gtfData.value.header;
+    if (!gtfData.value?.header) return;
+    console.log(`GTF Store: Updating header field: ${field}`, value);
 
+    gtfData.value.header[field] = value;
+
+    try {
       if (field === 'default_palette') {
-        const newPalette =
-          value && typeof value === 'object' && value.entries
-            ? value
-            : { entries: {} };
-        if (JSON.stringify(header[field]) !== JSON.stringify(newPalette)) {
-          header[field] = newPalette;
-          changed = true;
-          // Sync do Rustu
-          await invoke('update_default_palette', { newPalette });
-        }
-      } else if (field === 'default_size') {
-        const newSize =
-          value && typeof value === 'object' && value.width && value.height
-            ? value
-            : null;
-        if (JSON.stringify(header[field]) !== JSON.stringify(newSize)) {
-          header[field] = newSize;
-          changed = true;
-          // Sync do Rustu (přes celou hlavičku, protože nemáme update_size)
-          await invoke('update_header', { newHeader: header });
-        }
+        await invoke('update_default_palette', { new_palette: value });
       } else {
-        const newValue = typeof value === 'string' && value.trim() === '' ? null : value;
-        if (header[field] !== newValue) {
-          header[field] = newValue;
-          changed = true;
-          // Sync do Rustu
-          await invoke('update_header', { newHeader: header });
-        }
+        await invoke('update_header', { new_header: gtfData.value.header });
       }
-
-      if (changed) markDirty();
+      markDirty();
+    } catch (err) {
+      console.error('GTF Store: Header update failed', err);
     }
   }
 
@@ -260,153 +190,69 @@ export function useGtfStore() {
     );
     if (glyphIndex === -1) return;
 
-    const currentGlyph = gtfData.value.glyphs[glyphIndex];
-    const oldName = currentGlyph.name;
-    let changed = false;
+    const oldName = selectedGlyphName.value;
 
-    // Speciální akce: Paleta
-    if (action === 'use_default_palette') {
-      if (gtfData.value.header.default_palette?.entries) {
-        currentGlyph.palette = {
-          entries: JSON.parse(
-            JSON.stringify(gtfData.value.header.default_palette.entries)
-          ),
-        };
-        changed = true;
+    try {
+      if (action === 'use_default_palette') {
+        const updated = await invoke('apply_default_palette_to_glyph', { glyph_name: oldName });
+        gtfData.value.glyphs[glyphIndex] = updated;
+        markDirty();
+        return;
       }
-    } else if (field === 'bitmap' && action === 'pixel') {
-      // Optimalizovaný update JEDNOHO pixelu (volá Rust update_glyph_pixel)
-      const { row, col, char } = value;
-      // Lokálně
-      const chars = [...currentGlyph.bitmap[row]];
-      chars[col] = char;
-      currentGlyph.bitmap[row] = chars.join('');
-      // V Rustu
-      await invoke('update_glyph_pixel', {
-        glyphName: oldName,
-        row,
-        col,
-        newChar: char
+
+      if (field === 'bitmap' && action === 'pixel') {
+        const { row, col, char } = value;
+        const chars = [...gtfData.value.glyphs[glyphIndex].bitmap[row]];
+        chars[col] = char;
+        gtfData.value.glyphs[glyphIndex].bitmap[row] = chars.join('');
+
+        await invoke('update_glyph_pixel', { glyph_name: oldName, row, col, new_char: char });
+        markDirty();
+        return;
+      }
+
+      // Atomic field updates for strings (name, unicode, char_repr)
+      if (['name', 'unicode', 'char_repr'].includes(field)) {
+        const updated = await invoke('update_glyph_field', { glyph_name: oldName, field, value });
+        gtfData.value.glyphs[glyphIndex] = updated;
+        if (field === 'name') selectedGlyphName.value = value;
+
+        // we modify the glyph in place, so we need to mark dirty - NEED SAVING
+        markDirty();
+
+        return;
+      }
+
+      // General fallback (update local and sync whole glyph)
+      gtfData.value.glyphs[glyphIndex][field] = value;
+
+      await invoke('update_glyph', {
+        glyph_name: oldName,
+        updated_glyph: JSON.parse(JSON.stringify(gtfData.value.glyphs[glyphIndex]))
       });
-      changed = true;
-    } else {
-      // Obecné úpravy polí
-      if (field === 'char_repr') {
-        currentGlyph.char_repr = value.length > 0 ? value : null;
-        changed = true;
-      } else if (field === 'unicode') {
-        currentGlyph.unicode = value.trim() === '' ? null : value;
-        changed = true;
-      } else if (field === 'name') {
-        currentGlyph.name = value;
-        selectedGlyphName.value = value;
-        changed = true;
-      } else if (field === 'size') {
-        currentGlyph.size = value;
-        changed = true;
-      } else if (field === 'palette') {
-        currentGlyph.palette = value;
-        changed = true;
-      } else if (field === 'bitmap') {
-        currentGlyph.bitmap = value;
-        changed = true;
-      }
-    }
 
-    if (changed) {
-      // Sync CELÉHO glyfu do Rustu (pokud to nebyl jen pixel update, který už se syncnul)
-      if (action !== 'pixel') {
-        await invoke('update_glyph', {
-          glyphName: oldName,
-          updatedGlyph: JSON.parse(JSON.stringify(currentGlyph))
-        });
-      }
+      // we modify the glyph in place, so we need to mark dirty - NEED SAVING
       markDirty();
+
+    } catch (err) {
+      console.error('GTF Store: Update failed', err);
     }
   }
 
   async function addGlyphForChar(char) {
     if (!gtfData.value) return;
-    console.log(
-      `GTF Store: Attempting to add glyph for char: '${char}' (Singleton)`
-    );
+    console.log(`GTF Store: Adding glyph for char: '${char}' (Singleton)`);
 
-    if (gtfData.value.glyphs.some((g) => g.char_repr === char)) {
-      console.warn(
-        `GTF Store: Glyph with char_repr '${char}' already exists. (Singleton)`
-      );
-      const existingGlyph = gtfData.value.glyphs.find(
-        (g) => g.char_repr === char
-      );
-      if (existingGlyph) {
-        selectGlyph(existingGlyph.name);
-      }
-      return;
-    }
-
-    const baseName = char.match(/[a-zA-Z0-9]/) ? char : 'Glyph';
-    let newName = baseName;
-    let counter = 1;
-    const existingNames = new Set(gtfData.value.glyphs.map((g) => g.name));
-    if (existingNames.has(newName)) {
-      newName = baseName + counter;
-      while (existingNames.has(newName)) {
-        counter++;
-        newName = baseName + counter;
-      }
-    }
-    while (existingNames.has(newName)) {
-      counter++;
-      newName = baseName + counter;
-    }
-
-    const initialSize = gtfData.value?.header?.default_size
-      ? { ...gtfData.value.header.default_size }
-      : { width: 5, height: 7 };
-
-    const initialBitmap = Array(initialSize.height).fill(
-      '.'.repeat(initialSize.width)
-    );
-
-    const initialPalette =
-      gtfData.value?.header?.default_palette?.entries &&
-        Object.keys(gtfData.value.header.default_palette.entries).length > 0
-        ? {
-          entries: JSON.parse(
-            JSON.stringify(gtfData.value.header.default_palette.entries)
-          ),
-        }
-        : { entries: {} };
-
-    const newGlyph = {
-      name: newName,
-      unicode: null, // Will be auto-populated by updateGlyphData if char_repr triggers it
-      char_repr: char,
-      size: initialSize,
-      palette: initialPalette,
-      bitmap: initialBitmap,
-      validation_warnings: null,
-    };
-
-    // Auto-populate unicode right away if possible
-    if (!newGlyph.unicode && newGlyph.char_repr) {
-      try {
-        const codePoint = newGlyph.char_repr.codePointAt(0);
-        if (codePoint !== undefined) {
-          newGlyph.unicode = `U+${codePoint.toString(16).toUpperCase().padStart(4, '0')}`;
-        }
-      } catch (e) {
-        console.error('GTF Store: Error getting code point for new char:', e);
-      }
-    }
-
-    gtfData.value.glyphs.push(newGlyph);
-
-    // Backend update
     try {
-      await invoke('update_glyph', { glyphName: newName, updatedGlyph: newGlyph });
-      markDirty();
-      selectGlyph(newName);
+      const result = await invoke('add_glyph_for_char', { char });
+
+      // Update local state if it's a new glyph
+      if (!gtfData.value.glyphs.some(g => g.name === result.name)) {
+        gtfData.value.glyphs.push(result);
+        markDirty();
+      }
+
+      selectGlyph(result.name);
     } catch (err) {
       console.error('Failed to add glyph for char to backend', err);
     }
