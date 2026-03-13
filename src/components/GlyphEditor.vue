@@ -78,6 +78,15 @@
             </v-chip>
           </v-chip-group>
           <v-btn
+            :icon="showBackgroundHighlight ? 'mdi-brightness-6' : 'mdi-brightness-4'"
+            variant="text"
+            size="small"
+            color="primary"
+            :title="showBackgroundHighlight ? 'Disable Background Highlight (Normal #000000)' : 'Enable Background Highlight (Show #000000 as Gray)'"
+            @click="showBackgroundHighlight = !showBackgroundHighlight"
+            class="mr-2"
+          ></v-btn>
+          <v-btn
             prepend-icon="mdi-file-image-outline"
             variant="elevated"
             size="small"
@@ -112,7 +121,7 @@
         ref="canvasBitmapGridRef"
         :bitmap="glyphData.bitmap"
         :size="glyphData.size"
-        :palette="palette"
+        :palette="visualizedPalette"
         :selected-draw-char="selectedDrawChar"
         :selected-erase-char="selectedEraseChar"
         @update:bitmap="handleBitmapUpdate"
@@ -190,6 +199,7 @@ const canvasBitmapGridRef = ref(null);
 const selectedScale = ref(2); // Default to 2x scale
 const isExportingBMP = ref(false);
 const exportStatus = ref(null);
+const showBackgroundHighlight = ref(false);
 
 // Scale options for export
 const scaleOptions = [
@@ -203,6 +213,75 @@ const scaleOptions = [
 const hasDefaultPalette = computed(
   () => props.headerDefaultPalette && props.headerDefaultPalette.length > 0
 );
+
+// Animation state
+const highlightColor = ref('#7A7A7A');
+let animationFrameId = null;
+
+function startHighlightAnimation() {
+  if (animationFrameId) cancelAnimationFrame(animationFrameId);
+  
+  const startColor = { r: 122, g: 122, b: 122 }; // #7A7A7A
+  const endColor = { r: 85, g: 85, b: 85 };     // #555555
+  
+  const animate = (time) => {
+    // Smooth sine wave oscillation with period of ~2 seconds
+    const t = (Math.sin(time / 300) + 1) / 2; 
+    
+    const r = Math.round(startColor.r + (endColor.r - startColor.r) * t);
+    const g = Math.round(startColor.g + (endColor.g - startColor.g) * t);
+    const b = Math.round(startColor.b + (endColor.b - startColor.b) * t);
+    
+    highlightColor.value = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+    
+    animationFrameId = requestAnimationFrame(animate);
+  };
+  
+  animationFrameId = requestAnimationFrame(animate);
+}
+
+function stopHighlightAnimation() {
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+  highlightColor.value = '#7A7A7A'; // Reset to base color
+}
+
+// Watch toggle to control animation
+watch(showBackgroundHighlight, (newValue) => {
+  if (newValue) {
+    startHighlightAnimation();
+  } else {
+    stopHighlightAnimation();
+  }
+});
+
+// Clean up on unmount
+onUnmounted(() => {
+  stopHighlightAnimation();
+});
+
+// Create a visualized palette that acts as a proxy for rendering
+// When highlight is enabled, it changes #000000 to a visible dark grey
+const visualizedPalette = computed(() => {
+  if (!showBackgroundHighlight.value) return props.palette;
+  
+  if (!props.palette) return [];
+  
+  return props.palette.map(p => {
+    // Ensure p is an object
+    if (!p || typeof p !== 'object') return p;
+
+    // Check if color is black (case insensitive)
+    // We cast to any to avoid TS errors about 'color' on object, though runtime check exists
+    const entry = p;
+    if (entry.color && typeof entry.color === 'string' && entry.color.toLowerCase() === '#000000') {
+      return { ...entry, color: highlightColor.value }; 
+    }
+    return entry;
+  });
+});
 
 // Export-related computed properties
 const canExport = computed(() => {
@@ -364,7 +443,9 @@ watch(
     if (newPalette && newPalette.some((p) => p.char === '#')) {
       preferredChar = '#';
     } else if (newPalette && newPalette.length > 0) {
-      preferredChar = newPalette[0].char;
+      // Cast to access char property safely
+      const firstEntry = newPalette[0];
+      preferredChar = firstEntry.char;
     }
 
     const currentSelectionValid =
@@ -385,6 +466,14 @@ watch(
 // Keyboard Shortcuts for Nudging
 function handleNudgeKeydown(event) {
   if (!event.shiftKey) return; 
+  
+  // Handle 'B' key for background highlight toggle
+  if (event.key === 'B' || event.key === 'b') {
+    if (event.ctrlKey || event.metaKey) return; // Avoid conflict with other shortcuts if any
+    showBackgroundHighlight.value = !showBackgroundHighlight.value;
+    event.preventDefault();
+    return;
+  }
 
   // Only handle arrow keys
   if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
@@ -452,8 +541,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleNudgeKeydown);
-});
-</script>
+});</script>
 
 <style scoped>
 .glyph-editor-container {
